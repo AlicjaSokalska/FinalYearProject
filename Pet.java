@@ -1,22 +1,32 @@
 package com.example.testsample;
 
-public class Pet {
+import android.content.Context;
+import android.widget.ImageView;
+
+import com.bumptech.glide.Glide;
+
+import java.io.Serializable;
+import java.util.List;
+
+public class Pet implements Serializable {
     private String name;
     private String breed;
-    private String age;
+    private String dob;
     private String description;
     private String imageUrl;
+    private PetLocation location;
 
     public Pet() {
-
+        // Required empty constructor for Firebase
     }
 
-    public Pet(String name, String breed, String age, String description,String imageUrl) {
+    public Pet(String name,  String dob,String breed, String description, String imageUrl, PetLocation location) {
         this.name = name;
         this.breed = breed;
-        this.age = age;
+        this.dob = dob;
         this.description = description;
         this.imageUrl = imageUrl;
+        this.location = location;
     }
 
     public String getName() {
@@ -27,9 +37,10 @@ public class Pet {
         return breed;
     }
 
-    public String getAge() {
-        return age;
+    public String getDob() {
+        return dob;
     }
+
 
     public String getDescription() {
         return description;
@@ -42,14 +53,29 @@ public class Pet {
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
     }
-    @Override
-    public String toString() {
-        return "Pets:\n" +
-                "Name: " + name + "\n" +
-                "Age: " + age + "\n" +
-                "Breed: " + breed + "\n" +
-                "Description: " + description + "\n" +
-                "Image URL: " + imageUrl;
+
+    public boolean hasLocation() {
+        return location != null;
+    }
+
+    public PetLocation getLocation() {
+        return location;
+    }
+
+
+    public void setLocation(PetLocation location) {
+        this.location = location;
+    }
+
+
+
+    public void loadPetImage(ImageView imageView, Context context) {
+        if (imageUrl != null) {
+            Glide.with(context)
+                    .load(imageUrl)
+                    .placeholder(R.drawable.placeholder_image)
+                    .error(R.drawable.error_image)
+                    .into(imageView);
+        }
     }
 }
-
