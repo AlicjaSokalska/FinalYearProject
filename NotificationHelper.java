@@ -1,4 +1,4 @@
-package com.example.geofencing;
+package com.example.testsample;
 
 
 import android.app.Notification;
@@ -16,7 +16,9 @@ import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.ContextCompat;
 
+import java.util.Random;
 import java.util.Random;
 
 public class NotificationHelper extends ContextWrapper {
@@ -30,29 +32,29 @@ public class NotificationHelper extends ContextWrapper {
         }
     }
 
-    private String CHANNEL_NAME = "High priority channel";
-    private String CHANNEL_ID = "com.example.notifications" + CHANNEL_NAME;
+    // Use a default channel ID if none is provided
+    private String DEFAULT_CHANNEL_ID = "com.example.notifications.DefaultChannel";
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     private void createChannels() {
-        NotificationChannel notificationChannel = new NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH);
+        NotificationChannel notificationChannel = new NotificationChannel(DEFAULT_CHANNEL_ID, "Default channel", NotificationManager.IMPORTANCE_HIGH);
         notificationChannel.enableLights(true);
         notificationChannel.enableVibration(true);
-        notificationChannel.setDescription("this is the description of the channel.");
+        notificationChannel.setDescription("This is the default channel.");
         notificationChannel.setLightColor(Color.RED);
         notificationChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         manager.createNotificationChannel(notificationChannel);
     }
 
-    public void sendHighPriorityNotification(String title, String body, Class activityName) {
-
+    public void sendHighPriorityNotification(String title, String body, Class activityName, String channelId) {
         Intent intent = new Intent(this, activityName);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 267, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-//                .setContentTitle(title)
-//                .setContentText(body)
+        // Use the specified channel ID or the default one
+        String notificationChannelId = (channelId != null) ? channelId : DEFAULT_CHANNEL_ID;
+
+        Notification notification = new NotificationCompat.Builder(this, notificationChannelId)
                 .setSmallIcon(R.drawable.ic_launcher_background)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setStyle(new NotificationCompat.BigTextStyle().setSummaryText("summary").setBigContentTitle(title).bigText(body))
@@ -60,19 +62,20 @@ public class NotificationHelper extends ContextWrapper {
                 .setAutoCancel(true)
                 .build();
 
-        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return;
+        // Check if the app has the required notification permission
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+        if (notificationManager.areNotificationsEnabled()) {
+            if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+                return;
+            }
+            notificationManager.notify(new Random().nextInt(), notification);
         }
-        NotificationManagerCompat.from(this).notify(new Random().nextInt(), notification);
-
-
     }
-
 }
