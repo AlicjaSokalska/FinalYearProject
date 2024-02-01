@@ -1,8 +1,11 @@
 package com.example.testsample;
+import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -11,69 +14,90 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-
 public class UpdatePet extends AppCompatActivity {
 
-    private EditText petNameEditText;
-    private EditText updatedPetNameEditText;
-    private EditText updatedPetAgeEditText;
+    private TextView petNameTextView;
+    private EditText updatedPetDobEditText;
     private EditText updatedPetBreedEditText;
     private EditText updatedPetDescriptionEditText;
     private DatabaseReference userPetsReference;
+    private Pet selectedPet;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_update_pet);
 
-        petNameEditText = findViewById(R.id.petNameEditText);
-        updatedPetNameEditText = findViewById(R.id.updatedPetNameEditText);
-        updatedPetAgeEditText = findViewById(R.id.updatedPetAgeEditText);
+        petNameTextView = findViewById(R.id.petNameTextView);
+        updatedPetDobEditText = findViewById(R.id.updatedPetDobEditText); // Updated field for Date of Birth
         updatedPetBreedEditText = findViewById(R.id.updatedPetBreedEditText);
         updatedPetDescriptionEditText = findViewById(R.id.updatedPetDescriptionEditText);
+
+        // Disable editing for the updatedPetNameEditText
+        //updatedPetNameEditText = findViewById(R.id.updatedPetNameEditText);
+      //  updatedPetNameEditText.setEnabled(false);
+       // updatedPetNameEditText.setFocusable(false);
 
         Button updateButton = findViewById(R.id.updateButton);
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
             String userId = currentUser.getUid();
-            // Update the userPetsReference with the actual user ID
+
             userPetsReference = FirebaseDatabase.getInstance().getReference("users").child(userId).child("pets");
 
 
+            Intent intent = getIntent();
+            if (intent != null) {
+                selectedPet = (Pet) intent.getSerializableExtra("selectedPet");
+                if (selectedPet != null) {
+                    // Autofill EditText fields with pet details
+                    petNameTextView.setText(selectedPet.getName());
+                  //  updatedPetNameEditText.setText(selectedPet.getName());
+                    updatedPetDobEditText.setText(selectedPet.getDob());
+                    updatedPetBreedEditText.setText(selectedPet.getBreed());
+                    updatedPetDescriptionEditText.setText(selectedPet.getDescription());
+                }
+            }
             updateButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    String petName = petNameEditText.getText().toString();
-                    String updatedPetName = updatedPetNameEditText.getText().toString();
-                    String updatedPetAge = updatedPetAgeEditText.getText().toString();
+                    String petName = petNameTextView.getText().toString();
+                    String updatedPetDob = updatedPetDobEditText.getText().toString();
                     String updatedPetBreed = updatedPetBreedEditText.getText().toString();
                     String updatedPetDescription = updatedPetDescriptionEditText.getText().toString();
 
-                    // Update the pet information in Firebase
-                    updatePetInFirebase(petName, updatedPetName, updatedPetAge, updatedPetBreed, updatedPetDescription);
+
+                    Log.d("UpdatePet", "Updating pet: " + petName);
+
+                    updatePetInFirebase(petName, updatedPetDob, updatedPetBreed, updatedPetDescription);
                 }
             });
         }
     }
-    private void updatePetInFirebase(String petName, String updatedPetName, String updatedPetAge, String updatedPetBreed, String updatedPetDescription) {
-        // First, query the database to find the pet with the given name
-        userPetsReference.orderByChild("name").equalTo(petName).get().addOnCompleteListener(task -> {
-            if (task.isSuccessful()) {
-                // Check if the pet exists
-                if (task.getResult().exists()) {
-                    for (DataSnapshot petSnapshot : task.getResult().getChildren()) {
-                        // Update the pet's information
-                        petSnapshot.child("name").getRef().setValue(updatedPetName);
-                        petSnapshot.child("age").getRef().setValue(updatedPetAge);
-                        petSnapshot.child("breed").getRef().setValue(updatedPetBreed);
-                        petSnapshot.child("description").getRef().setValue(updatedPetDescription);
 
-                        Toast.makeText(UpdatePet.this, "Pet updated.", Toast.LENGTH_SHORT).show();
-                    }
+
+    private void updatePetInFirebase(String petName, String updatedPetDob, String updatedPetBreed, String updatedPetDescription) {
+        userPetsReference.child(petName).get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                DataSnapshot petSnapshot = task.getResult();
+                if (petSnapshot.exists()) {
+                    // Update the pet's information
+                    petSnapshot.child("dob").getRef().setValue(updatedPetDob);
+                    petSnapshot.child("breed").getRef().setValue(updatedPetBreed);
+                    petSnapshot.child("description").getRef().setValue(updatedPetDescription);
+
+
+                    Toast.makeText(UpdatePet.this, "Pet information updated.", Toast.LENGTH_SHORT).show();
                 } else {
+
+                    Log.d("UpdatePet", "Pet not found.");
+
                     Toast.makeText(UpdatePet.this, "Pet not found.", Toast.LENGTH_SHORT).show();
                 }
             } else {
+
+                Log.e("UpdatePet", "Error updating pet: " + task.getException());
+
                 Toast.makeText(UpdatePet.this, "Error updating pet.", Toast.LENGTH_SHORT).show();
             }
         });
