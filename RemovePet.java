@@ -1,6 +1,5 @@
 package com.example.testsample;
 
-import android.content.Intent;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -48,16 +47,16 @@ public class RemovePet extends AppCompatActivity {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
             String userId = currentUser.getUid();
-            // Update the userPetsReference with the actual user ID
+
             userPetsReference = FirebaseDatabase.getInstance().getReference("users").child(userId).child("pets");
 
             removeButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    // Get the pet name entered by the user
+
                     String petName = petNameEditText.getText().toString();
 
-                    // Remove the pet from Firebase
+
                     removePetFromFirebase(petName);
                 }
             });
@@ -72,7 +71,7 @@ public class RemovePet extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         if (id == android.R.id.home) {
-            // Navigate up to the main activity
+
             onBackPressed();
             return true;
         }
