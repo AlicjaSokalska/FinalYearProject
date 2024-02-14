@@ -95,19 +95,29 @@ public class PetHealth extends AppCompatActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 if (dataSnapshot.exists()) {
+                    String petType = dataSnapshot.child("type").getValue(String.class);
                     petBreed = dataSnapshot.child("breed").getValue(String.class);
                     petDateOfBirth = dataSnapshot.child("dob").getValue(String.class);
 
-
-                    petBreedTextView.setText("Pet Breed: " + petBreed);
-                    if (petBreed != null) {
-
-                        weightRange = getBreedWeightRange(petBreed);
-                        if (weightRange == null) {
-
-                            Toast.makeText(PetHealth.this, "Weight range not available for the breed", Toast.LENGTH_SHORT).show();
-                        } else {
-                            idealWeight = calculateIdealWeight(weightRange);
+                    if ("Dog".equals(petType)) {
+                        petBreedTextView.setText("Pet Breed: " + petBreed);
+                        if (petBreed != null) {
+                            weightRange = getDogBreedWeightRange(petBreed);
+                            if (weightRange == null) {
+                                Toast.makeText(PetHealth.this, "Weight range not available for the breed", Toast.LENGTH_SHORT).show();
+                            } else {
+                                idealWeight = calculateIdealWeight(weightRange);
+                            }
+                        }
+                    } else if ("Cat".equals(petType)) {
+                        petBreedTextView.setText("Pet Breed: " + petBreed);
+                        if (petBreed != null) {
+                            weightRange = getCatBreedWeightRange(petBreed);
+                            if (weightRange == null) {
+                                Toast.makeText(PetHealth.this, "Weight range not available for the breed", Toast.LENGTH_SHORT).show();
+                            } else {
+                                idealWeight = calculateIdealWeight(weightRange);
+                            }
                         }
                     }
 
@@ -117,7 +127,6 @@ public class PetHealth extends AppCompatActivity {
                     if (savedWeight != null) {
                         petWeightEditText.setText(String.valueOf(savedWeight));
                     }
-
                 }
             }
 
@@ -233,28 +242,35 @@ public class PetHealth extends AppCompatActivity {
                 .child("health");
 
 
-        petHealthReference.child("ageInMonths").setValue(petAgeInMonths);
-        petHealthReference.child("weight").setValue(petWeight);
-        petHealthReference.child("breedWeightRange").setValue(weightRange);
-        petHealthReference.child("idealWeight").setValue(idealWeight);
+        if (weightRange != null) {
 
-        if (petWeight < weightRange.first) {
-            petHealthReference.child("weightStatus").setValue("Underweight");
-            Toast.makeText(this, "Warning: Pet is underweight", Toast.LENGTH_SHORT).show();
-        } else if (petWeight > weightRange.second) {
-            petHealthReference.child("weightStatus").setValue("Overweight");
-            Toast.makeText(this, "Warning: Pet is overweight", Toast.LENGTH_SHORT).show();
+            petHealthReference.child("ageInMonths").setValue(petAgeInMonths);
+            petHealthReference.child("weight").setValue(petWeight);
+            petHealthReference.child("breedWeightRange").setValue(weightRange);
+            petHealthReference.child("idealWeight").setValue(idealWeight);
+
+
+            String weightStatus = evaluateWeight(petWeight, weightRange);
+            petHealthReference.child("weightStatus").setValue(weightStatus);
+
+            String lifeStage;
+            if ("Dog".equalsIgnoreCase(selectedPet.getType())) {
+                lifeStage = calculateDogLifeStage(petAgeInMonths);
+            } else if ("Cat".equalsIgnoreCase(selectedPet.getType())) {
+                lifeStage = calculateCatLifeStage(petAgeInMonths);
+            } else {
+                lifeStage = "Unknown";
+            }
+            petHealthReference.child("lifeStage").setValue(lifeStage);
+
+       
+            displayHealthInformation(petAgeInMonths, petWeight);
+
+            Toast.makeText(this, "Health information saved successfully", Toast.LENGTH_SHORT).show();
         } else {
-            petHealthReference.child("weightStatus").setValue("Ideal");
+            // Handle case where weight range is not available for the breed
+            Toast.makeText(this, "Weight range not available for the breed", Toast.LENGTH_SHORT).show();
         }
-
-        String lifeStage = calculateLifeStage(petAgeInMonths);
-        petHealthReference.child("lifeStage").setValue(lifeStage);
-
-        Toast.makeText(this, "Health information saved successfully", Toast.LENGTH_SHORT).show();
-
-        displayHealthInformation(petAgeInMonths, petWeight);
-
     }
 
     private void displayHealthInformation(int petAgeInMonths, double petWeight) {
@@ -262,24 +278,46 @@ public class PetHealth extends AppCompatActivity {
 
         StringBuilder healthInfo = new StringBuilder();
 
-
         healthInfo.append("Pet Weight: ").append(petWeight).append(" lb\n");
         healthInfo.append("Ideal Weight: ").append(idealWeight).append(" lb\n");
 
-        if (petWeight < weightRange.first) {
-            healthInfo.append("Weight Status: Underweight\n");
-        } else if (petWeight > weightRange.second) {
-            healthInfo.append("Weight Status: Overweight\n");
-        } else {
-            healthInfo.append("Weight Status: Ideal\n");
+        if ("Dog".equalsIgnoreCase(selectedPet.getType())) {
+            Pair<Double, Double> dogWeightRange = getDogBreedWeightRange(selectedPet.getBreed());
+            if (dogWeightRange != null) {
+                if (petWeight < dogWeightRange.first) {
+                    healthInfo.append("Weight Status: Underweight\n");
+                } else if (petWeight > dogWeightRange.second) {
+                    healthInfo.append("Weight Status: Overweight\n");
+                } else {
+                    healthInfo.append("Weight Status: Ideal\n");
+                }
+            } else {
+                healthInfo.append("Weight Status: Weight range not available for the breed\n");
+            }
+            String lifeStage = calculateDogLifeStage(petAgeInMonths);
+            healthInfo.append("Life Stage: ").append(lifeStage).append("\n");
+        } else if ("cat".equals(selectedPet.getType())) {
+
+            Pair<Double, Double> catWeightRange = getCatBreedWeightRange(selectedPet.getBreed());
+            if (catWeightRange != null) {
+                if (petWeight < catWeightRange.first) {
+                    healthInfo.append("Weight Status: Underweight\n");
+                } else if (petWeight > catWeightRange.second) {
+                    healthInfo.append("Weight Status: Overweight\n");
+                } else {
+                    healthInfo.append("Weight Status: Ideal\n");
+                }
+            } else {
+                healthInfo.append("Weight Status: Weight range not available for the breed\n");
+            }
+            String lifeStage = calculateCatLifeStage(petAgeInMonths);
+            healthInfo.append("Life Stage: ").append(lifeStage).append("\n");
         }
-        String lifeStage = calculateLifeStage(petAgeInMonths);
-        healthInfo.append("Life Stage: ").append(lifeStage).append("\n");
 
         healthInfoTextView.setText(healthInfo.toString());
     }
 
-    private String calculateLifeStage(int petAgeInMonths) {
+    private String calculateDogLifeStage(int petAgeInMonths) {
 
 
         if (petAgeInMonths <= 12) {
@@ -290,7 +328,15 @@ public class PetHealth extends AppCompatActivity {
             return "Senior";
         }
     }
-
+    private String calculateCatLifeStage(int petAgeInMonths) {
+        if (petAgeInMonths < 12) {
+            return "Kitten";
+        } else if (petAgeInMonths < 60) {
+            return "Adult";
+        } else {
+            return "Senior";
+        }
+    }
 
 
     private void saveButtonClicked() {
@@ -307,8 +353,21 @@ public class PetHealth extends AppCompatActivity {
             Toast.makeText(this, "Error calculating pet age", Toast.LENGTH_SHORT).show();
         }
     }
+    private Pair<Double, Double> getCatBreedWeightRange(String breed) {
 
-    private Pair<Double, Double> getBreedWeightRange(String breed) {
+        Map<String, Pair<Double, Double>> breedWeightMap = new HashMap<>();
+        breedWeightMap.put("Siamese", new Pair<>(7.0, 10.0));
+        breedWeightMap.put("Persian", new Pair<>(7.0, 12.0));
+        breedWeightMap.put("Maine Coon", new Pair<>(10.0, 15.0));
+        breedWeightMap.put("Himalayan", new Pair<>(7.0, 12.0));
+
+
+        return breedWeightMap.getOrDefault(breed, new Pair<>(8.0, 10.0));
+    }
+
+
+
+    private Pair<Double, Double> getDogBreedWeightRange(String breed) {
 
         Map<String, Pair<Double, Double>> breedWeightMap = new HashMap<>();
         breedWeightMap.put("Affenpinscher", new Pair<>(7.0, 10.0));
