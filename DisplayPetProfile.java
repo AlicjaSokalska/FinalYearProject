@@ -3,33 +3,58 @@ package com.example.testsample;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 
 public class DisplayPetProfile extends AppCompatActivity {
     private Pet selectedPet; // Updated to store the Pet object
     private Toolbar toolbar;
     private DatabaseReference userPetsReference;
-    private Button intakeBtn, healthBtn;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_display_pet_profile);
 
+        toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
 
 
-        intakeBtn = findViewById(R.id.intakeBtn);
+        TextView currentDateTextView = findViewById(R.id.currentDateTextView);
+        TextView currentTimeTextView = findViewById(R.id.currentTimeTextView);
 
-        healthBtn = findViewById(R.id.healthBtn);
+// Get current date and time
+        Date currentDate = new Date();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+        SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm a");
+
+        String formattedDate = dateFormat.format(currentDate);
+        String formattedTime = timeFormat.format(currentDate);
+
+        currentDateTextView.setText(formattedDate);
+        currentTimeTextView.setText(formattedTime);
+
 
         // Get pet details
         selectedPet = (Pet) getIntent().getSerializableExtra("selectedPet");
@@ -42,7 +67,9 @@ public class DisplayPetProfile extends AppCompatActivity {
 
 
         TextView petDetailsTextView = findViewById(R.id.petDetailsTextView);
+        TextView activityTextView = findViewById(R.id.activityTextView);
         ImageView petImageView = findViewById(R.id.petImageView);
+        TextView activityTextView2 = findViewById(R.id.activityTextView2);
 
         StringBuilder petDetailsBuilder = new StringBuilder();
         petDetailsBuilder.append("Name: ").append(selectedPet.getName()).append("\n");
@@ -64,6 +91,49 @@ public class DisplayPetProfile extends AppCompatActivity {
             petDetailsBuilder.append("Location: Not available");
         }
 
+        activityTextView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                navigateToViewPetExerciseActivity();
+            }
+        });
+
+
+        // Get the current user's ID
+        FirebaseAuth mAuth = FirebaseAuth.getInstance();
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser != null) {
+            String userId = currentUser.getUid();
+            userPetsReference = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("current_exercise_data");
+
+            // Fetch and display current step count
+            userPetsReference.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull DataSnapshot snapshot) {
+                    if (snapshot.exists()) {
+                        int stepCount = snapshot.child("stepCount").getValue(Integer.class);
+                        activityTextView2.setText("Step Count: " + stepCount);
+                    } else {
+                        activityTextView2.setText("No exercise data available");
+                    }
+                }
+
+                @Override
+                public void onCancelled(@NonNull DatabaseError error) {
+                    Log.e("DisplayPetProfile", "Firebase database error: " + error.getMessage());
+                }
+            });
+        } else {
+            Log.e("DisplayPetProfile", "Current user is null");
+            finish();
+        }
+        TextView weightTextView = findViewById(R.id.weightTextView);
+        weightTextView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                navigateToPetWeightDataActivity();
+            }
+        });
 
         petDetailsTextView.setText(petDetailsBuilder.toString());
         petDetailsTextView.setOnClickListener(new View.OnClickListener() {
@@ -76,22 +146,74 @@ public class DisplayPetProfile extends AppCompatActivity {
 
         selectedPet.loadPetImage(petImageView, this);
 
-
-
-        intakeBtn.setOnClickListener(new View.OnClickListener() {
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation_pet);
+        bottomNavigationView.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
             @Override
-            public void onClick(View v) {
-                navigateToIntakeActivity();
+            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+                if (item.getItemId() == R.id.navigation_home) {
+                    startActivity(new Intent(DisplayPetProfile.this, StartUpPage.class));
+                    return true;
+                } else if (item.getItemId() == R.id.navigation_viewLocation) {
+                    navigateToViewPetLocation();
+                    return true;
+                } else if (item.getItemId() == R.id.navigation_viewActivity) {
+                    navigateToViewPetExerciseActivity();
+                    return true;
+                } else {
+                    return false;
+                }
             }
         });
 
+}
 
-     healthBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                navigateToHealthActivity();
-            }
-        });
+    private void navigateToViewPetLocation() {
+        Intent intent = new Intent(this, ViewPetLocation.class);
+        intent.putExtra("selectedPet", selectedPet); // Assuming selectedPet is the object representing the selected pet
+        startActivity(intent);
+    }
+
+
+    private void navigateToViewPetExerciseActivity() {
+        Intent intent = new Intent(this,ViewPetExercise.class);
+        intent.putExtra("selectedPet", selectedPet);
+        startActivity(intent);
+    }
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.pet_profile_menu, menu);
+
+        return true;
+    }
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int itemId = item.getItemId();
+        if (itemId == R.id.action_set_target) {
+            navigateToTargetActivity();
+            return true;
+        } else if (itemId == R.id.action_add_intake) {
+            navigateToIntakeActivity();
+            return true;
+        } else if (itemId == R.id.action_pet_health) {
+            navigateToHealthActivity();
+            return true;
+
+
+        }
+
+
+        return super.onOptionsItemSelected(item);
+    }
+
+
+
+
+
+
+    private void navigateToTargetActivity() {
+        Intent intent = new Intent(this, SetTargets.class);
+        intent.putExtra("selectedPet", selectedPet);
+        startActivity(intent);
     }
 
 
@@ -106,7 +228,11 @@ public class DisplayPetProfile extends AppCompatActivity {
         startActivity(intent);
     }
 
-
+    private void navigateToPetWeightDataActivity() {
+        Intent intent = new Intent(this, PetWeightData.class);
+        intent.putExtra("selectedPet", selectedPet);
+        startActivity(intent);
+    }
 
 
     private void navigateToHealthActivity() {
@@ -115,11 +241,7 @@ public class DisplayPetProfile extends AppCompatActivity {
         startActivity(intent);
     }
 
-    @Override
-    public boolean onSupportNavigateUp() {
-        onBackPressed();
-        return true;
-    }
+
 }
 
 

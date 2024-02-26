@@ -11,7 +11,7 @@ public class PetLocation  implements Serializable {
     private String address;
 
     public PetLocation() {
-  
+
     }
 
     public PetLocation(double latitude, double longitude, double altitude, float accuracy, float speed, String address) {
