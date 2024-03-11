@@ -7,6 +7,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -21,6 +22,7 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 
 import java.text.SimpleDateFormat;
@@ -68,12 +70,12 @@ public class DisplayPetProfile extends AppCompatActivity {
 
 
         TextView petDetailsTextView = findViewById(R.id.petDetailsTextView);
-        TextView activityTextView = findViewById(R.id.activityTextView);
+
         ImageView petImageView = findViewById(R.id.petImageView);
         TextView activityTextView2 = findViewById(R.id.activityTextView2);
         TextView weightTextView2 = findViewById(R.id.weightTextView2);
         RelativeLayout activityLayout = findViewById(R.id.layout2);
-
+        RelativeLayout weightLayout = findViewById(R.id.layout3);
 
         StringBuilder petDetailsBuilder = new StringBuilder();
         petDetailsBuilder.append("Name: ").append(selectedPet.getName()).append("\n");
@@ -101,30 +103,71 @@ public class DisplayPetProfile extends AppCompatActivity {
                 navigateToViewPetExerciseActivity();
             }
         });
-        weightTextView2.setOnClickListener(new View.OnClickListener() {
+        weightLayout.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                navigateToViewPetExerciseActivity();
+                navigateToPetWeightDataActivity();
             }
         });
 
-        // Get the current user's ID
         FirebaseAuth mAuth = FirebaseAuth.getInstance();
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser != null) {
             String userId = currentUser.getUid();
             DatabaseReference exerciseDataRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("current_exercise_data");
             DatabaseReference weightRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("health");
+            DatabaseReference catHealthTargetRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("health").child("catHealthTarget");
 
-            // Fetch and display current step count
+            DatabaseReference dogHealthTargetRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("health").child("dogHealthTarget");
             exerciseDataRef.addListenerForSingleValueEvent(new ValueEventListener() {
                 @Override
                 public void onDataChange(@NonNull DataSnapshot snapshot) {
                     if (snapshot.exists()) {
-                        int stepCount = snapshot.child("stepCount").getValue(Integer.class);
-                        activityTextView2.setText("Step Count: " + stepCount);
+                        if (snapshot.child("stepCount").exists()) { // Check if stepCount exists under health
+                            int stepCount = snapshot.child("stepCount").getValue(Integer.class); // Retrieve step count
+                            activityTextView2.setText("Step Count: " + stepCount);
+
+                            ProgressBar progressBar = findViewById(R.id.stepsProgressBar);
+                            TextView stepsTargetTextView = findViewById(R.id.stepsTargetTextView);
+
+                            if (selectedPet.getType().equals("Cat")) {
+                                // Hide stepsProgressBar if the pet is a cat
+
+                                stepsTargetTextView.setVisibility(View.GONE);
+                                progressBar.setVisibility(View.GONE);
+                            } else {
+                                // Show stepsProgressBar for dogs
+                                progressBar.setVisibility(View.GONE);
+                                progressBar.setProgress(stepCount);
+                            }
+
+                            dogHealthTargetRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                                    if (dataSnapshot.exists()) {
+                                        int activityGoal = dataSnapshot.child("activityGoal").getValue(Integer.class);
+
+                                        // Update ProgressBar
+                                        progressBar.setMax(activityGoal);
+                                        // Set the current progress to the step count
+                                        TextView stepCountTextView = findViewById(R.id.stepTargetTextView);
+                                        stepCountTextView.setText(stepCount + " / " + activityGoal);
+                                    } else {
+                                        Log.e("DisplayPetProfile", "No activity goal data available");
+                                    }
+                                }
+
+                                @Override
+                                public void onCancelled(@NonNull DatabaseError error) {
+                                    Log.e("DisplayPetProfile", "Firebase dog health target data error: " + error.getMessage());
+                                }
+                            });
+
+                        } else {
+                            activityTextView2.setText("No exercise data available");
+                        }
                     } else {
-                        activityTextView2.setText("No exercise data available");
+                        activityTextView2.setText("No health data available");
                     }
                 }
 
@@ -134,18 +177,80 @@ public class DisplayPetProfile extends AppCompatActivity {
                 }
             });
 
-            // Fetch and display pet weight
+// Fetch and display pet weight
             weightRef.addListenerForSingleValueEvent(new ValueEventListener() {
                 @Override
                 public void onDataChange(@NonNull DataSnapshot snapshot) {
                     if (snapshot.exists()) {
-                        Long petWeight = snapshot.child("weight").getValue(Long.class);
-                        if (petWeight != null) {
-                            long weightValue = petWeight.longValue();
-                            Log.d("PetWeight", "Weight value retrieved: " + weightValue);
-                            weightTextView2.setText(weightValue+"lbs");
+                        DataSnapshot weightSnapshot = snapshot.child("weight");
+                        if (weightSnapshot.exists()) {
+                            Long petWeight = weightSnapshot.getValue(Long.class);
+                            if (petWeight != null) {
+                                long weightValue = petWeight.longValue();
+                                Log.d("PetWeight", "Weight value retrieved: " + weightValue);
+                                weightTextView2.setText("Pet Weight: " + weightValue + " lbs");
+                                Query startWeightQuery = FirebaseDatabase.getInstance().getReference()
+                                        .child("users")
+                                        .child(userId)
+                                        .child("pets")
+                                        .child(selectedPet.getName())
+                                        .child("health")
+                                        .child("weightData")
+                                        .orderByChild("timeStamp")
+                                        .limitToFirst(1);
+
+                                // Convert Query to DatabaseReference
+                                DatabaseReference startWeightRef = startWeightQuery.getRef();
+
+
+                                // Log the reference being used for start weight
+                                Log.d("StartWeightRef", "Start weight reference: " + startWeightRef.toString());
+
+                                startWeightRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                                    @Override
+                                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                                        if (dataSnapshot.exists()) {
+                                            for (DataSnapshot weightDataSnapshot : dataSnapshot.getChildren()) {
+                                                long startWeight = weightDataSnapshot.child("weight").getValue(Long.class);
+                                                Log.d("StartWeight", "Start weight retrieved: " + startWeight);
+
+                                                // Calculate the difference between current weight and target weight
+                                                long weightDifference = weightValue - startWeight;
+
+                                                // Update ProgressBar for weight progress
+                                                ProgressBar weightProgressBar = findViewById(R.id.weightProgressBar);
+                                                weightProgressBar.setMax((int) Math.abs(weightDifference));
+
+                                                if (weightDifference > 0) { // Pet is underweight
+                                                    weightProgressBar.setProgress(0); // Start of the progress bar is the start weight
+                                                } else if (weightDifference < 0) { // Pet is overweight
+                                                    weightProgressBar.setProgress((int) Math.abs(weightDifference)); // End of the progress bar is the current weight
+                                                } else { // Pet is at the target weight
+                                                    weightProgressBar.setProgress(0);
+                                                }
+
+                                                // Display weight value / start weight
+                                                TextView weightTextView = findViewById(R.id.weightTargetTextView2);
+                                                weightTextView.setText(weightValue + " / " + startWeight + " lbs");
+                                                break; // Assuming we only need the earliest weight entry
+                                            }
+                                        } else {
+                                            Log.e("DisplayPetProfile", "No start weight data available");
+                                        }
+                                    }
+
+                                    @Override
+                                    public void onCancelled(@NonNull DatabaseError error) {
+                                        Log.e("DisplayPetProfile", "Firebase start weight data error: " + error.getMessage());
+                                    }
+                                });
+
+                            } else {
+                                Log.d("PetWeight", "Weight data is null");
+                                weightTextView2.setText("Pet Weight: Not available");
+                            }
                         } else {
-                            Log.d("PetWeight", "Weight data is null");
+                            Log.d("PetWeight", "Weight snapshot does not exist");
                             weightTextView2.setText("Pet Weight: Not available");
                         }
                     } else {
@@ -158,12 +263,10 @@ public class DisplayPetProfile extends AppCompatActivity {
                     Log.e("DisplayPetProfile", "Firebase weight data error: " + error.getMessage());
                 }
             });
-        } else {
-            Log.e("DisplayPetProfile", "Current user is null");
-            finish();
         }
 
-        TextView weightTextView = findViewById(R.id.weightTextView);
+
+            TextView weightTextView = findViewById(R.id.weightTextView);
         weightTextView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -193,7 +296,7 @@ public class DisplayPetProfile extends AppCompatActivity {
                     navigateToViewPetLocation();
                     return true;
                 } else if (item.getItemId() == R.id.navigation_viewActivity) {
-                    navigateToViewPetExerciseActivity();
+                    navigateToHealthActivity();
                     return true;
                 } else {
                     return false;
@@ -211,7 +314,7 @@ public class DisplayPetProfile extends AppCompatActivity {
 
 
     private void navigateToViewPetExerciseActivity() {
-        Intent intent = new Intent(this,ViewPetExercise.class);
+        Intent intent = new Intent(this, ViewPetExercise.class);
         intent.putExtra("selectedPet", selectedPet);
         startActivity(intent);
     }
@@ -230,9 +333,7 @@ public class DisplayPetProfile extends AppCompatActivity {
         } else if (itemId == R.id.action_add_intake) {
             navigateToIntakeActivity();
             return true;
-        } else if (itemId == R.id.action_pet_health) {
-            navigateToHealthActivity();
-            return true;
+
 
 
         }

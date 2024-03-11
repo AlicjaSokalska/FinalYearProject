@@ -2,11 +2,13 @@ package com.example.testsample;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -120,9 +122,73 @@ public class ViewPetExercise extends AppCompatActivity {
                 startActivity(intent);
             }
         });
-    }
 
-    private void fetchAndDisplayWeekExerciseData() {
+
+
+
+
+        if (currentUser != null) {
+            String userId = currentUser.getUid();
+            DatabaseReference exerciseDataRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("current_exercise_data");
+            DatabaseReference catHealthTargetRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("health").child("catHealthTarget");
+
+            DatabaseReference dogHealthTargetRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("health").child("dogHealthTarget");
+            exerciseDataRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull DataSnapshot snapshot) {
+                    if (snapshot.exists()) {
+                        if (snapshot.child("stepCount").exists()) { // Check if stepCount exists under health
+                            int stepCount = snapshot.child("stepCount").getValue(Integer.class); // Retrieve step count
+
+                            ProgressBar progressBar = findViewById(R.id.stepsProgressBar);
+                            TextView stepsTargetTextView = findViewById(R.id.stepsTargetTextView);
+
+                            if (selectedPet.getType().equals("Cat")) {
+                                // Hide stepsProgressBar if the pet is a cat
+                                stepsTargetTextView.setVisibility(View.GONE);
+                                progressBar.setVisibility(View.GONE);
+                            } else {
+                                // Show stepsProgressBar for dogs
+                                progressBar.setVisibility(View.VISIBLE);
+                                progressBar.setProgress(stepCount);
+                            }
+
+                            dogHealthTargetRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                                    if (dataSnapshot.exists()) {
+                                        int activityGoal = dataSnapshot.child("activityGoal").getValue(Integer.class);
+
+                                        // Update ProgressBar
+                                        progressBar.setMax(activityGoal);
+                                        // Set the current progress to the step count
+                                        progressBar.setProgress(stepCount);
+                                        // Set the current step count and activity goal
+                                        TextView stepCountTextView = findViewById(R.id.stepTargetTextView);
+                                        stepCountTextView.setText(stepCount + " / " + activityGoal);
+                                    } else {
+                                        Log.e("DisplayPetProfile", "No activity goal data available");
+                                    }
+                                }
+
+                                @Override
+                                public void onCancelled(@NonNull DatabaseError error) {
+                                    Log.e("DisplayPetProfile", "Firebase dog health target data error: " + error.getMessage());
+                                }
+                            });
+
+                        }
+                    }
+                }
+
+                @Override
+                public void onCancelled(@NonNull DatabaseError error) {
+                    Log.e("DisplayPetProfile", "Firebase exercise data error: " + error.getMessage());
+                }
+            });
+        }}
+
+            private void fetchAndDisplayWeekExerciseData() {
         DatabaseReference petRef;
         if (selectedPetName != null) {
             petRef = usersRef.child("pets").child(selectedPetName);
