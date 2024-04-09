@@ -10,6 +10,7 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -25,8 +26,10 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 
 
 public class DisplayPetProfile extends AppCompatActivity {
@@ -43,7 +46,6 @@ public class DisplayPetProfile extends AppCompatActivity {
         toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-
         TextView currentDateTextView = findViewById(R.id.currentDateTextView);
         TextView currentTimeTextView = findViewById(R.id.currentTimeTextView);
 
@@ -57,6 +59,8 @@ public class DisplayPetProfile extends AppCompatActivity {
 
         currentDateTextView.setText(formattedDate);
         currentTimeTextView.setText(formattedTime);
+
+
 
 
         // Get pet details
@@ -96,22 +100,77 @@ public class DisplayPetProfile extends AppCompatActivity {
         } else {
             petDetailsBuilder.append("Location: Not available");
         }
-
-        activityLayout.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                navigateToViewPetExerciseActivity();
-            }
-        });
-        weightLayout.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                navigateToPetWeightDataActivity();
-            }
-        });
-
         FirebaseAuth mAuth = FirebaseAuth.getInstance();
         FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser != null) {
+            String userId = currentUser.getUid();
+
+            activityLayout.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (!selectedPet.getType().equals("Cat") && !selectedPet.getType().equals("Dog")) {
+                        Toast.makeText(DisplayPetProfile.this, "Function only available for cats or dogs", Toast.LENGTH_SHORT).show();
+                        navigateToOtherPetExerciseActivity();
+                    } else {
+                        DatabaseReference exerciseDataRef = FirebaseDatabase.getInstance().getReference()
+                                .child("users")
+                                .child(userId)
+                                .child("pets")
+                                .child(selectedPet.getName())
+                                .child("current_exercise_data")
+                                .child("stepCount");
+
+                        exerciseDataRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                                if (snapshot.exists()) {
+                                    navigateToViewPetExerciseActivity();
+                                } else {
+                                    Toast.makeText(DisplayPetProfile.this, "Step count data not available", Toast.LENGTH_SHORT).show();
+                                }
+                            }
+
+                            @Override
+                            public void onCancelled(@NonNull DatabaseError error) {
+                                Log.e("DisplayPetProfile", "Firebase step count data error: " + error.getMessage());
+                            }
+                        });
+                    }
+                }
+            });
+
+            weightLayout.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    DatabaseReference weightRef = FirebaseDatabase.getInstance().getReference()
+                            .child("users")
+                            .child(userId)
+                            .child("pets")
+                            .child(selectedPet.getName())
+                            .child("health")
+                            .child("weight");
+
+                    weightRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull DataSnapshot snapshot) {
+                            if (snapshot.exists()) {
+                                navigateToPetWeightDataActivity();
+                            } else {
+                                Toast.makeText(DisplayPetProfile.this, "Weight data not available", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+
+                        @Override
+                        public void onCancelled(@NonNull DatabaseError error) {
+                            Log.e("DisplayPetProfile", "Firebase weight data error: " + error.getMessage());
+                        }
+                    });
+                }
+            });
+
+        }
+      //  FirebaseAuth mAuth = FirebaseAuth.getInstance();
+      //  FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser != null) {
             String userId = currentUser.getUid();
             DatabaseReference exerciseDataRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("current_exercise_data");
@@ -266,7 +325,7 @@ public class DisplayPetProfile extends AppCompatActivity {
         }
 
 
-            TextView weightTextView = findViewById(R.id.weightTextView);
+        TextView weightTextView = findViewById(R.id.weightTextView);
         weightTextView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -304,7 +363,85 @@ public class DisplayPetProfile extends AppCompatActivity {
             }
         });
 
-}
+
+        displayReminderDate();
+
+    }
+
+    private void displayReminderDate() {
+        FirebaseAuth mAuth = FirebaseAuth.getInstance();
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+
+        if (currentUser != null) {
+            String userId = currentUser.getUid();
+            DatabaseReference remindersRef = FirebaseDatabase.getInstance().getReference()
+                    .child("users")
+                    .child(userId) // Use userId variable
+                    .child("pets")
+                    .child(selectedPet.getName())
+                    .child("reminders");
+
+            remindersRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                    if (dataSnapshot.exists()) {
+                        long currentDateMillis = System.currentTimeMillis();
+                        long closestReminderMillis = Long.MAX_VALUE;
+                        String closestReminderDate = "";
+                        String closestReminderTag = "";
+
+                        // Iterate over each reminder to find the closest one
+                        for (DataSnapshot reminderSnapshot : dataSnapshot.getChildren()) {
+                            String reminderDate = reminderSnapshot.child("date").getValue(String.class);
+                            long reminderMillis = convertDateStringToMillis(reminderDate);
+
+                            // Calculate the difference between the reminder date and current date
+                            long differenceMillis = Math.abs(reminderMillis - currentDateMillis);
+
+                            // Update closest reminder if the current reminder is closer to the current date
+                            if (differenceMillis < closestReminderMillis) {
+                                closestReminderMillis = differenceMillis;
+                                closestReminderDate = reminderDate;
+                                closestReminderTag = reminderSnapshot.child("tag").getValue(String.class);
+                            }
+                        }
+
+                        // Display the closest reminder date and tag
+                        TextView notificationTextView2 = findViewById(R.id.notificationTextView2);
+                        if (!closestReminderDate.isEmpty()) {
+                            notificationTextView2.setText(" Date: " + closestReminderDate +"\n Tag: " + closestReminderTag);
+                        } else {
+                            notificationTextView2.setText("No reminders available");
+                        }
+                    } else {
+                        TextView notificationTextView2 = findViewById(R.id.notificationTextView2);
+                        notificationTextView2.setText("No reminders available");
+                    }
+                }
+
+                @Override
+                public void onCancelled(@NonNull DatabaseError databaseError) {
+                    Log.e("DisplayPetProfile", "Failed to fetch reminders: " + databaseError.getMessage());
+                }
+            });
+        }
+    }
+
+    // Helper method to convert date string to milliseconds
+    private long convertDateStringToMillis(String dateString) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+        try {
+            Date date = dateFormat.parse(dateString);
+            if (date != null) {
+                return date.getTime();
+            }
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+
 
     private void navigateToViewPetLocation() {
         Intent intent = new Intent(this, ViewPetLocation.class);
@@ -313,11 +450,7 @@ public class DisplayPetProfile extends AppCompatActivity {
     }
 
 
-    private void navigateToViewPetExerciseActivity() {
-        Intent intent = new Intent(this, ViewPetExercise.class);
-        intent.putExtra("selectedPet", selectedPet);
-        startActivity(intent);
-    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.pet_profile_menu, menu);
@@ -345,8 +478,16 @@ public class DisplayPetProfile extends AppCompatActivity {
 
 
 
-
-
+    private void navigateToOtherPetExerciseActivity() {
+        Intent intent = new Intent(this, OtherPetExercise.class);
+        intent.putExtra("selectedPet", selectedPet);
+        startActivity(intent);
+    }
+    private void navigateToViewPetExerciseActivity() {
+        Intent intent = new Intent(this, ViewPetExercise.class);
+        intent.putExtra("selectedPet", selectedPet);
+        startActivity(intent);
+    }
     private void navigateToTargetActivity() {
         Intent intent = new Intent(this, SetTargets.class);
         intent.putExtra("selectedPet", selectedPet);
@@ -370,10 +511,15 @@ public class DisplayPetProfile extends AppCompatActivity {
         intent.putExtra("selectedPet", selectedPet);
         startActivity(intent);
     }
+    private void navigateToOtherPetWeightDataActivity() {
+        Intent intent = new Intent(this, OtherPetWeightData.class);
+        intent.putExtra("selectedPet", selectedPet);
+        startActivity(intent);
+    }
 
 
     private void navigateToHealthActivity() {
-        Intent intent = new Intent(this, PetHealth.class);
+        Intent intent = new Intent(this, HealthData.class);
         intent.putExtra("selectedPet", selectedPet);
         startActivity(intent);
     }

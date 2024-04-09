@@ -92,7 +92,7 @@ public class Register extends AppCompatActivity {
                             currentUserRef.child("email").setValue(email);
 
                             // Redirect to the main activity
-                            Intent intent = new Intent(Register.this, MainActivity.class);
+                            Intent intent = new Intent(Register.this,AddFullPetDetails.class);
                             startActivity(intent);
                             finish(); // Close the registration activity to prevent going back
 

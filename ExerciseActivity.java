@@ -37,6 +37,7 @@ public class ExerciseActivity extends AppCompatActivity implements SensorEventLi
     private SensorManager sensorManager;
     private Sensor accelerometer;
 
+
     private int stepCount = 0;
     private double distance = 0.0;
     private double speed = 0.0;
@@ -46,7 +47,7 @@ public class ExerciseActivity extends AppCompatActivity implements SensorEventLi
     private TextView speedTextView;
     private TextView stepCountTextView;
     private DatabaseReference dailyTotalRef;
-
+    private TextView heartRateTextView;
 
     private Switch trackingSwitch;
     private boolean isTracking = false;
@@ -81,8 +82,10 @@ public class ExerciseActivity extends AppCompatActivity implements SensorEventLi
         speedTextView = findViewById(R.id.speedTextView);
         stepCountTextView = findViewById(R.id.stepCountTextView);
 
+
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+
 
 
 
@@ -112,12 +115,12 @@ public class ExerciseActivity extends AppCompatActivity implements SensorEventLi
     }
 
     private void stopTracking() {
-
         Log.d("ExerciseActivity", "Daily total saved");
         saveDailyTotal(stepCount, distance);
 
         stepCount = 0;
         distance = 0.0;
+
         saveExerciseData(selectedPetName, stepCount, distance);
 
         Log.d("ExerciseActivity", "Data resetted");
@@ -137,6 +140,7 @@ public class ExerciseActivity extends AppCompatActivity implements SensorEventLi
     protected void onResume() {
         super.onResume();
             sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+
         fetchAndDisplayExerciseData();
 
 
@@ -180,9 +184,7 @@ public class ExerciseActivity extends AppCompatActivity implements SensorEventLi
                     saveExerciseData(selectedPetName, stepCount, distance);
 
 
-
-                }
-            }
+                }}
 
 
             Calendar currentCalendar = Calendar.getInstance();
@@ -256,9 +258,11 @@ public class ExerciseActivity extends AppCompatActivity implements SensorEventLi
         dailyTotalDataRef.child("stepCount").setValue(stepCount);
         dailyTotalDataRef.child("distance").setValue(distance);
 
+
         // Reset counts for the next day
         stepCount = 0;
         distance = 0.0;
+
 
         Log.d("ExerciseActivity", "Daily total exercise data saved successfully.");
     }
@@ -271,6 +275,7 @@ public class ExerciseActivity extends AppCompatActivity implements SensorEventLi
 
             exerciseRef.child("stepCount").setValue(stepCount);
             exerciseRef.child("distance").setValue(distance);
+
 
             Log.d("ExerciseActivity", "Exercise data saved successfully.");
         } else {
