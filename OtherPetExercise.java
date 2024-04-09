@@ -30,7 +30,8 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Locale;
-public class ViewPetExercise extends AppCompatActivity {
+
+public class OtherPetExercise extends AppCompatActivity {
     private int activityGoal;
     private DatabaseReference usersRef;
     private FirebaseAuth mAuth;
@@ -48,19 +49,10 @@ public class ViewPetExercise extends AppCompatActivity {
     private WebView chartWebView, chartWebView2;
 
 
-
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_view_pet_exercise);
-/*
-        Intent intent = getIntent();
-        if (intent.hasExtra("selectedPetName")) {
-            selectedPetName = intent.getStringExtra("selectedPetName");
-            tvSelectedPet = findViewById(R.id.tv_selectedPet);
-            tvSelectedPet.setText("Selected Pet: " + selectedPetName);
-            tvSelectedPet.setVisibility(View.VISIBLE);
-        }*/
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -114,7 +106,7 @@ public class ViewPetExercise extends AppCompatActivity {
         btnViewPastExercise.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(ViewPetExercise.this, PastExercise.class);
+                Intent intent = new Intent(OtherPetExercise.this, PastExercise.class);
                 if (selectedPetName != null) {
                     intent.putExtra("selectedPetName", selectedPetName);
                 } else if (selectedPet != null) {
@@ -131,9 +123,9 @@ public class ViewPetExercise extends AppCompatActivity {
         if (currentUser != null) {
             String userId = currentUser.getUid();
             DatabaseReference exerciseDataRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("current_exercise_data");
-            DatabaseReference catHealthTargetRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("health").child("catHealthTarget");
+           // DatabaseReference catHealthTargetRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("health").child("catHealthTarget");
 
-            DatabaseReference dogHealthTargetRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("health").child("dogHealthTarget");
+            DatabaseReference petHealthTargetRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("health").child("petHealthTarget");
             exerciseDataRef.addListenerForSingleValueEvent(new ValueEventListener() {
                 @Override
                 public void onDataChange(@NonNull DataSnapshot snapshot) {
@@ -144,17 +136,12 @@ public class ViewPetExercise extends AppCompatActivity {
                             ProgressBar progressBar = findViewById(R.id.stepsProgressBar);
                             TextView stepsTargetTextView = findViewById(R.id.stepsTargetTextView);
 
-                            if (selectedPet.getType().equals("Cat")) {
-                                // Hide stepsProgressBar if the pet is a cat
-                                stepsTargetTextView.setVisibility(View.GONE);
-                                progressBar.setVisibility(View.GONE);
-                            } else {
                                 // Show stepsProgressBar for dogs
                                 progressBar.setVisibility(View.VISIBLE);
                                 progressBar.setProgress(stepCount);
-                            }
 
-                            dogHealthTargetRef.addListenerForSingleValueEvent(new ValueEventListener() {
+
+                           petHealthTargetRef.addListenerForSingleValueEvent(new ValueEventListener() {
                                 @Override
                                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                                     if (dataSnapshot.exists()) {
@@ -174,7 +161,7 @@ public class ViewPetExercise extends AppCompatActivity {
 
                                 @Override
                                 public void onCancelled(@NonNull DatabaseError error) {
-                                    Log.e("DisplayPetProfile", "Firebase dog health target data error: " + error.getMessage());
+                                    Log.e("DisplayPetProfile", "Firebase pet health target data error: " + error.getMessage());
                                 }
                             });
 
@@ -189,7 +176,7 @@ public class ViewPetExercise extends AppCompatActivity {
             });
         }}
 
-            private void fetchAndDisplayWeekExerciseData() {
+    private void fetchAndDisplayWeekExerciseData() {
         DatabaseReference petRef;
         if (selectedPetName != null) {
             petRef = usersRef.child("pets").child(selectedPetName);
@@ -252,11 +239,9 @@ public class ViewPetExercise extends AppCompatActivity {
                         int activityGoal;
 
 
-                        if (healthSnapshot.hasChild("dogHealthTarget")) {
-                            activityGoal = healthSnapshot.child("dogHealthTarget").child("activityGoal").getValue(Integer.class);
+                        if (healthSnapshot.hasChild("petHealthTarget")) {
+                            activityGoal = healthSnapshot.child("petHealthTarget").child("activityGoal").getValue(Integer.class);
 
-                        } else if (healthSnapshot.hasChild("catHealthTarget")) {
-                            activityGoal = healthSnapshot.child("catHealthTarget").child("activityDurationGoal").getValue(Integer.class);
                         } else {
                             // Handle the case if neither dogHealthTarget nor catHealthTarget is present
                             return;
@@ -274,14 +259,10 @@ public class ViewPetExercise extends AppCompatActivity {
 
                                     String exerciseInfo = "Step Count: " + stepCount + "\nDistance: " + distance + " meters";
                                     exerciseInfo += "\nActivity Goal: " + activityGoal;
-                                    if ("Cat".equals(snapshot.child("type").getValue(String.class))) {
-                                        exerciseInfo += " minutes";
-                                    } else {
-                                        exerciseInfo += " steps";
-                                    }
+
                                     tvCurrentExercise.setText(exerciseInfo);
 
-                                    if ("Dog".equals(snapshot.child("type").getValue(String.class))) {
+                                    if ("Other".equals(snapshot.child("type").getValue(String.class))) {
                                         // Add the recommended step count as blue line on the step count chart
                                         ArrayList<Integer> stepCounts = new ArrayList<>();
                                         for (DataSnapshot childSnapshot : snapshot.getChildren()) {
@@ -295,7 +276,7 @@ public class ViewPetExercise extends AppCompatActivity {
 
 
                                     if (stepCount >= activityGoal) {
-                                        Toast.makeText(ViewPetExercise.this, "Congratulations! Your pet has reached its activity goal.", Toast.LENGTH_SHORT).show();
+                                        Toast.makeText(OtherPetExercise.this, "Congratulations! Your pet has reached its activity goal.", Toast.LENGTH_SHORT).show();
                                     } else {
                                         // Get the current time
                                         Calendar calendar = Calendar.getInstance();
@@ -303,10 +284,10 @@ public class ViewPetExercise extends AppCompatActivity {
 
                                         // Check if it's past 9 PM
                                         if (currentHour >= 21) {
-                                            Toast.makeText(ViewPetExercise.this, "Alert! Your pet didn't reach its activity goal by 9 PM.", Toast.LENGTH_SHORT).show();
+                                            Toast.makeText(OtherPetExercise.this, "Alert! Your pet didn't reach its activity goal by 9 PM.", Toast.LENGTH_SHORT).show();
                                         } else if (currentHour >= 18 && stepCount == 0) {
                                             // Display alert message
-                                            AlertDialog.Builder builder = new AlertDialog.Builder(ViewPetExercise.this);
+                                            AlertDialog.Builder builder = new AlertDialog.Builder(OtherPetExercise.this);
                                             builder.setTitle("Alert")
                                                     .setMessage("Check Up on your Pet .Your pet's step count is zero after 6 PM.")
                                                     .setPositiveButton("OK", null)
@@ -340,12 +321,10 @@ public class ViewPetExercise extends AppCompatActivity {
                         DataSnapshot healthSnapshot = snapshot.child("health");
                         int activityGoal;
 
-                        if (healthSnapshot.hasChild("dogHealthTarget")) {
-                            activityGoal = healthSnapshot.child("dogHealthTarget").child("activityGoal").getValue(Integer.class);
+                        if (healthSnapshot.hasChild("petHealthTarget")) {
+                            activityGoal = healthSnapshot.child("petHealthTarget").child("activityGoal").getValue(Integer.class);
 
-                        } else if (healthSnapshot.hasChild("catHealthTarget")) {
-                            activityGoal = healthSnapshot.child("catHealthTarget").child("activityDurationGoal").getValue(Integer.class);
-                        } else {
+                        }else {
                             // Handle the case if neither dogHealthTarget nor catHealthTarget is present
                             return;
                         }
@@ -361,13 +340,11 @@ public class ViewPetExercise extends AppCompatActivity {
 
                                     String exerciseInfo = "Step Count: " + stepCount + "\nDistance: " + distance + " meters";
                                     exerciseInfo += "\nActivity Goal: " + activityGoal;
-                                    if ("Cat".equals(selectedPet.getType())) {
-                                        exerciseInfo += " minutes";
-                                    } else {
-                                        exerciseInfo += " steps";
-                                    }
+
+                                    exerciseInfo += " steps";
+
                                     tvCurrentExercise.setText(exerciseInfo);
-                                    if ("Dog".equals(snapshot.child("type").getValue(String.class))) {
+                                    if ("Other".equals(snapshot.child("type").getValue(String.class))) {
                                         // Add the recommended step count as blue line on the step count chart
                                         ArrayList<Integer> stepCounts = new ArrayList<>();
                                         for (DataSnapshot childSnapshot : snapshot.getChildren()) {
@@ -379,17 +356,17 @@ public class ViewPetExercise extends AppCompatActivity {
                                         loadStepChart(stepCounts, activityGoal);
                                     }
                                     if (stepCount >= activityGoal) {
-                                        Toast.makeText(ViewPetExercise.this, "Congratulations! Your pet has reached its activity goal.", Toast.LENGTH_SHORT).show();
+                                        Toast.makeText(OtherPetExercise.this, "Congratulations! Your pet has reached its activity goal.", Toast.LENGTH_SHORT).show();
                                     } else {
                                         Calendar calendar = Calendar.getInstance();
                                         int currentHour = calendar.get(Calendar.HOUR_OF_DAY);
 
 
                                         if (currentHour >= 21) {
-                                            Toast.makeText(ViewPetExercise.this, "Alert! Your pet didn't reach its activity goal by 9 PM.", Toast.LENGTH_SHORT).show();
+                                            Toast.makeText(OtherPetExercise.this, "Alert! Your pet didn't reach its activity goal by 9 PM.", Toast.LENGTH_SHORT).show();
                                         } else if (currentHour >= 18 && stepCount == 0) {
                                             // Display alert message
-                                            AlertDialog.Builder builder = new AlertDialog.Builder(ViewPetExercise.this);
+                                            AlertDialog.Builder builder = new AlertDialog.Builder(OtherPetExercise.this);
                                             builder.setTitle("Alert")
                                                     .setMessage("Check Up on your Pet .Your pet's step count is zero after 6 PM.")
                                                     .setPositiveButton("OK", null)
@@ -444,10 +421,8 @@ public class ViewPetExercise extends AppCompatActivity {
 
                     int activityGoal = 0; // Define the variable here
 
-                    if (healthSnapshot.hasChild("dogHealthTarget")) {
-                        activityGoal = healthSnapshot.child("dogHealthTarget").child("activityGoal").getValue(Integer.class);
-                    } else if (healthSnapshot.hasChild("catHealthTarget")) {
-                        activityGoal = healthSnapshot.child("catHealthTarget").child("activityDurationGoal").getValue(Integer.class);
+                    if (healthSnapshot.hasChild("petHealthTarget")) {
+                        activityGoal = healthSnapshot.child("petHealthTarget").child("activityGoal").getValue(Integer.class);
                     } else {
                         // Handle the case if neither dogHealthTarget nor catHealthTarget is present
                         return;
@@ -641,5 +616,4 @@ public class ViewPetExercise extends AppCompatActivity {
         html.append("</body></html>");
 
         chartWebView2.loadDataWithBaseURL(null, html.toString(), "text/html", "UTF-8", null);
-    }
-}
+    }}

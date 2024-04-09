@@ -221,7 +221,9 @@ public class ReminderAdapter extends RecyclerView.Adapter<ReminderAdapter.Remind
         });
 
         builder.show();
-    }private void updateReminder(final Reminder reminder, final String updatedTag, final String updatedDescription, final String updatedDate, final boolean updatedStatus) {
+    }
+
+    private void updateReminder(final Reminder reminder, final String updatedTag, final String updatedDescription, final String updatedDate, final boolean updatedStatus) {
         if (currentUserId == null || reminder == null) {
             // Handle null values gracefully
             Toast.makeText(context, "User ID or reminder is null", Toast.LENGTH_SHORT).show();

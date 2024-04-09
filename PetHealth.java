@@ -119,7 +119,22 @@ public class PetHealth extends AppCompatActivity {
                                 idealWeight = calculateIdealWeight(weightRange);
                             }
                         }
+                    }  else {
+                        // If pet type is neither dog nor cat, save the inputted weight
+                        petBreedTextView.setText("Pet Type: " + petType);
+
+                        // Get the inputted weight
+                        String weightString = petWeightEditText.getText().toString();
+                        if (!TextUtils.isEmpty(weightString)) {
+                            petWeight = Double.parseDouble(weightString);
+
+                            // Save the inputted weight
+                            savePetHealthInformation(-1, petWeight);
+                        } else {
+                            Toast.makeText(PetHealth.this, "No information on this system about this pet breed.Please input the weight.", Toast.LENGTH_SHORT).show();
+                        }
                     }
+
 
                     String petAge = calculateAgeFromDOB(petDateOfBirth);
                     petAgeTextView.setText("Pet Age: " + petAge);
@@ -136,7 +151,6 @@ public class PetHealth extends AppCompatActivity {
             }
         });
     }
-
 
 
     private String calculateAgeFromDOB(String dateOfBirth) {
@@ -241,35 +255,55 @@ public class PetHealth extends AppCompatActivity {
                 .child(selectedPet.getName())
                 .child("health");
 
-
-        if (weightRange != null) {
-
-            petHealthReference.child("ageInMonths").setValue(petAgeInMonths);
+        // Check if the pet type is unknown (neither dog nor cat)
+        if (!("Dog".equalsIgnoreCase(selectedPet.getType()) || "Cat".equalsIgnoreCase(selectedPet.getType()))) {
+            // Save only the weight when the pet type is unknown
             petHealthReference.child("weight").setValue(petWeight);
-            petHealthReference.child("breedWeightRange").setValue(weightRange);
-            petHealthReference.child("idealWeight").setValue(idealWeight);
 
+            // Show toast indicating no weight range or ideal weight
+            Toast.makeText(this, "No weight range or ideal weight available for this pet.", Toast.LENGTH_SHORT).show();
 
-            String weightStatus = evaluateWeight(petWeight, weightRange);
-            petHealthReference.child("weightStatus").setValue(weightStatus);
+            // Display the saved health information
+            displayHealthInformation(-1, petWeight);
 
-            String lifeStage;
-            if ("Dog".equalsIgnoreCase(selectedPet.getType())) {
-                lifeStage = calculateDogLifeStage(petAgeInMonths);
-            } else if ("Cat".equalsIgnoreCase(selectedPet.getType())) {
-                lifeStage = calculateCatLifeStage(petAgeInMonths);
-            } else {
-                lifeStage = "Unknown";
-            }
-            petHealthReference.child("lifeStage").setValue(lifeStage);
-
-       
-            displayHealthInformation(petAgeInMonths, petWeight);
-
+            // Show toast message indicating successful save
             Toast.makeText(this, "Health information saved successfully", Toast.LENGTH_SHORT).show();
-        } else {
-            // Handle case where weight range is not available for the breed
-            Toast.makeText(this, "Weight range not available for the breed", Toast.LENGTH_SHORT).show();
+            return; // Exit the method
+        }
+        else {
+            // Proceed with saving health information for known pet types (dog or cat)
+            if (weightRange != null) {
+                petHealthReference.child("ageInMonths").setValue(petAgeInMonths);
+
+                // Convert petWeight to long before setting it in the database
+                long petWeightLong = (long) petWeight;
+                petHealthReference.child("weight").setValue(petWeightLong);
+
+                petHealthReference.child("breedWeightRange").setValue(weightRange);
+                petHealthReference.child("idealWeight").setValue(idealWeight);
+
+                String weightStatus = evaluateWeight(petWeight, weightRange);
+                petHealthReference.child("weightStatus").setValue(weightStatus);
+
+                String lifeStage;
+                if ("Dog".equalsIgnoreCase(selectedPet.getType())) {
+                    lifeStage = calculateDogLifeStage(petAgeInMonths);
+                } else if ("Cat".equalsIgnoreCase(selectedPet.getType())) {
+                    lifeStage = calculateCatLifeStage(petAgeInMonths);
+                } else {
+                    lifeStage = "Unknown";
+                }
+                petHealthReference.child("lifeStage").setValue(lifeStage);
+
+                // Display the saved health information
+                displayHealthInformation(petAgeInMonths, petWeight);
+
+                // Show toast message indicating successful save
+                Toast.makeText(this, "Health information saved successfully", Toast.LENGTH_SHORT).show();
+            } else {
+                // Handle case where weight range is not available for the breed
+                Toast.makeText(this, "Weight range not available for the breed", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
@@ -289,7 +323,7 @@ public class PetHealth extends AppCompatActivity {
                 } else if (petWeight > dogWeightRange.second) {
                     healthInfo.append("Weight Status: Overweight\n");
                 } else {
-                    healthInfo.append("Weight Status: Ideal\n");
+                    healthInfo.append("Weight Status: Normal\n");
                 }
             } else {
                 healthInfo.append("Weight Status: Weight range not available for the breed\n");
@@ -305,7 +339,7 @@ public class PetHealth extends AppCompatActivity {
                 } else if (petWeight > catWeightRange.second) {
                     healthInfo.append("Weight Status: Overweight\n");
                 } else {
-                    healthInfo.append("Weight Status: Ideal\n");
+                    healthInfo.append("Weight Status: Normal\n");
                 }
             } else {
                 healthInfo.append("Weight Status: Weight range not available for the breed\n");
@@ -641,7 +675,7 @@ public class PetHealth extends AppCompatActivity {
         if (petWeight < weightRange.first) {
             return "Underweight";
         } else if (petWeight >= weightRange.first && petWeight <= weightRange.second) {
-            return "Ideal weight";
+            return "Normal weight";
         } else {
             return "Overweight";
         }

@@ -294,13 +294,11 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (snapshot.exists()) {
-
                     Double geofenceLatitude = snapshot.child("latitude").getValue(Double.class);
                     Double geofenceLongitude = snapshot.child("longitude").getValue(Double.class);
                     Float geofenceRadius = snapshot.child("radius").getValue(Float.class);
 
                     if (geofenceLatitude != null && geofenceLongitude != null && geofenceRadius != null) {
-
                         float[] distance = new float[1];
                         Location.distanceBetween(
                                 currentLocation.getLatitude(), currentLocation.getLongitude(),
@@ -308,16 +306,21 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
                                 distance
                         );
 
-                        if (distance[0] > geofenceRadius) {
+                        Log.d("GeofenceCheck", "Distance from geofence center: " + distance[0]);
+                        Log.d("GeofenceCheck", "Geofence Radius: " + geofenceRadius);
 
-                            Toast.makeText(Tracking.this, "Pet is outside the geofence!", Toast.LENGTH_SHORT).show();
+                        if (distance[0] > geofenceRadius) {
+                            Log.d("GeofenceCheck", "Pet is outside the geofence!");
                             sendNotification("Pet is outside the geofence!");
                         } else {
-
-                            Toast.makeText(Tracking.this, "Pet is inside the geofence!", Toast.LENGTH_SHORT).show();
+                            Log.d("GeofenceCheck", "Pet is inside the geofence!");
                             sendNotification("Pet is inside the geofence!");
                         }
+                    } else {
+                        Log.e("GeofenceCheck", "Geofence data incomplete or null");
                     }
+                } else {
+                    Log.e("GeofenceCheck", "Geofence data does not exist");
                 }
             }
 
@@ -327,6 +330,7 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
             }
         });
     }
+
 
 
     /* private void startLocationUpdates() {

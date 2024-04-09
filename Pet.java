@@ -6,7 +6,6 @@ import android.widget.ImageView;
 import com.bumptech.glide.Glide;
 
 import java.io.Serializable;
-import java.util.List;
 
 public class Pet implements Serializable {
     private String name;
@@ -14,20 +13,31 @@ public class Pet implements Serializable {
     private String dob;
     private String description;
     private String imageUrl;
+    private String type;
     private PetLocation location;
 
     public Pet() {
         // Required empty constructor for Firebase
     }
 
-    public Pet(String name,  String dob,String breed, String description, String imageUrl, PetLocation location) {
+    public Pet(String name,  String dob,String type,String breed, String description, String imageUrl, PetLocation location) {
         this.name = name;
+        this.type = type;
         this.breed = breed;
         this.dob = dob;
         this.description = description;
         this.imageUrl = imageUrl;
         this.location = location;
+
     }
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
 
     public String getName() {
         return name;

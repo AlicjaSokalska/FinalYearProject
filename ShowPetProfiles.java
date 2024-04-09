@@ -100,7 +100,7 @@ public class ShowPetProfiles extends AppCompatActivity {
     }
 
     private void displayPetDetails(Pet pet) {
-   
+
         StringBuilder detailsBuilder = new StringBuilder();
         detailsBuilder.append("Name: ").append(pet.getName()).append("\n");
         detailsBuilder.append("Date of Birth: ").append(pet.getDob()).append("\n");

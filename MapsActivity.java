@@ -47,7 +47,6 @@ import com.google.firebase.database.ValueEventListener;
 
 import java.util.HashMap;
 import java.util.Map;
-
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMapLongClickListener {
     private static final float GEOFENCE_RADIUS = 200;
     private static final String GEOFENCE_ID = "SOME_GEOFENCE_ID";
@@ -56,7 +55,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private static final int FINE_LOCATION_ACCESS_CODE = 10001;
 
     private GoogleMap mMap;
-
+    private Pet selectedPet;
     private Pet pet;
     private Marker petMarker;
 
@@ -87,10 +86,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+        Intent intent = getIntent();
+        selectedPet = (Pet) intent.getSerializableExtra("selectedPet");
 
         if (getIntent().hasExtra("pet")) {
             pet = (Pet) getIntent().getSerializableExtra("pet");
-
+        } else if (getIntent().hasExtra("selectedPet")) {
+            selectedPet = (Pet) getIntent().getSerializableExtra("selectedPet");
+        }
+        if (selectedPet != null) {
+            Toast.makeText(this, "Selected pet: " + selectedPet.getName(), Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "No pet selected", Toast.LENGTH_SHORT).show();
         }
 
 
@@ -100,17 +107,29 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void onClick(View v) {
 
                 updatePetMarker();
-
-
-                if (pet != null) {
+                String petName = null;
+                if (selectedPet != null) {
                     Intent updateIntent = new Intent(MapsActivity.this, ViewPetLocation.class);
-                    updateIntent.putExtra("selectedPetName", pet.getName());
+                    updateIntent.putExtra("selectedPet", selectedPet.getName());
+                    //Toast.makeText(MapsActivity.this, "Pet", Toast.LENGTH_SHORT).show();
                     startActivity(updateIntent);
                 }
+                if (pet != null) {
+                    Intent updateIntent = new Intent(MapsActivity.this, ViewPetLocation.class);
+                    updateIntent.putExtra("selectedPet", pet.getName()); // Change "selectedPet" to "pet"
+                    startActivity(updateIntent);
+                }
+                if (petName != null) {
+                    Toast.makeText(MapsActivity.this, "Selected pet: " + petName, Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(MapsActivity.this, "No pet selected", Toast.LENGTH_SHORT).show();
+                }
+
 
                 Toast.makeText(MapsActivity.this, "Pet marker and intent refreshed", Toast.LENGTH_SHORT).show();
             }
         });
+
 
 
         geofencingClient = LocationServices.getGeofencingClient(this);
@@ -212,10 +231,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-
     private void updatePetMarker() {
-        if (pet != null) {
-            DatabaseReference petLocationRef = databaseReference.child("pets").child(pet.getName()).child("location");
+        if (pet != null || selectedPet != null) {
+            Pet petToUpdate = (pet != null) ? pet : selectedPet;
+            DatabaseReference petLocationRef = databaseReference.child("pets").child(petToUpdate.getName()).child("location");
             locationListener = petLocationRef.addValueEventListener(new ValueEventListener() {
                 @Override
                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
@@ -226,7 +245,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                         LatLng petLatLng = new LatLng(latitude, longitude);
                         movePetMarker(petLatLng);
-
 
                         checkGeofenceStatus(petLatLng);
                     }
@@ -241,7 +259,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
 
-   private void checkGeofenceStatus(LatLng petLatLng) {
+
+    private void checkGeofenceStatus(LatLng petLatLng) {
         if (savedGeofenceLocation != null && petLatLng != null) {
             float[] distance = new float[1];
             Location.distanceBetween(
@@ -311,8 +330,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
         notificationManagerCompat.notify(1, builder.build());
     }
-    @Override
-    public void onMapReady(GoogleMap googleMap) {
+@Override
+   public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
         enableUserLocation();
@@ -324,9 +343,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             addCircle(savedGeofenceLocation, GEOFENCE_RADIUS);
             addGeofence(savedGeofenceLocation, GEOFENCE_RADIUS);
         }
-
-
-
 
         Intent intent = getIntent();
         if (intent.hasExtra("latitude") && intent.hasExtra("longitude")) {
@@ -357,7 +373,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             mMap.addMarker(markerOptions);
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(petLatLng, 16));
             checkGeofenceStatus(petLatLng); // Call checkGeofenceStatus with the pet's location
-        } else {
+        } else if (selectedPet != null && selectedPet.hasLocation()) {
+            LatLng petLatLng = new LatLng(selectedPet.getLocation().getLatitude(), selectedPet.getLocation().getLongitude());
+            MarkerOptions markerOptions = new MarkerOptions()
+                    .position(petLatLng)
+                    .title("Selected Pet Marker")
+                    .snippet("Lat: " + selectedPet.getLocation().getLatitude() + " Lon: " + selectedPet.getLocation().getLongitude())
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN));
+            mMap.addMarker(markerOptions);
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(petLatLng, 16));
+            checkGeofenceStatus(petLatLng); // Call checkGeofenceStatus with the selected pet's location
+        }else {
             Toast.makeText(this, "Pet location not available", Toast.LENGTH_SHORT).show();
         }
         Button btnRefresh = findViewById(R.id.btnRefresh);
@@ -483,7 +509,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         saveGeofenceToFirebase(latLng, radius);
     }
 
-    private void saveGeofenceToFirebase(LatLng latLng, float radius) {
+   /* private void saveGeofenceToFirebase(LatLng latLng, float radius) {
         if (pet != null) {
             FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
             if (currentUser != null) {
@@ -522,7 +548,92 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Toast.makeText(MapsActivity.this, "User not authenticated", Toast.LENGTH_SHORT).show();
             }
         }
-    }
+    }*/
+  /*private void saveGeofenceToFirebase(LatLng latLng, float radius) {
+   NB
+       Pet petToSave = (pet != null) ? pet : selectedPet;
+       if (petToSave == null) {
+           Log.d(TAG, "saveGeofence: Pet: " + (pet != null ? pet.getName() : "null"));
+           Log.d(TAG, "saveGeofence: SelectedPet: " + (selectedPet != null ? selectedPet.getName() : "null"));
+
+           Toast.makeText(MapsActivity.this, "No pet available to save geofence", Toast.LENGTH_SHORT).show();
+           return;
+       }
+
+       FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+       if (currentUser == null) {
+           Log.d(TAG, "saveGeofenceToFirebase: Current user is null");
+           Toast.makeText(MapsActivity.this, "User not authenticated", Toast.LENGTH_SHORT).show();
+           return;
+       }
+
+       String userId = currentUser.getUid();
+       DatabaseReference userRef = databaseReference.child("users").child(userId);
+       DatabaseReference petRef = userRef.child("pets").child(petToSave.getName());
+       DatabaseReference geofenceRef = petRef.child("geofence");
+
+       Map<String, Object> geofenceData = new HashMap<>();
+       geofenceData.put("latitude", latLng.latitude);
+       geofenceData.put("longitude", latLng.longitude);
+       geofenceData.put("radius", radius);
+
+       geofenceRef.setValue(geofenceData)
+               .addOnSuccessListener(new OnSuccessListener<Void>() {
+                   @Override
+                   public void onSuccess(Void aVoid) {
+                       Log.d(TAG, "onSuccess: Geofence data saved under pet's node in Firebase...");
+                       Toast.makeText(MapsActivity.this, "Geofence saved to Firebase", Toast.LENGTH_SHORT).show();
+                   }
+               })
+               .addOnFailureListener(new OnFailureListener() {
+                   @Override
+                   public void onFailure(@NonNull Exception e) {
+                       Log.d(TAG, "onFailure: Failed to save geofence data under pet's node in Firebase. " + e.getMessage());
+                       Toast.makeText(MapsActivity.this, "Failed to save geofence to Firebase", Toast.LENGTH_SHORT).show();
+                   }
+               });
+   }
+*/
+   private void saveGeofenceToFirebase(LatLng latLng, float radius) {
+       if (selectedPet == null) {
+           Log.d(TAG, "saveGeofenceToFirebase: Selected pet is null");
+           Toast.makeText(MapsActivity.this, "No pet available to save geofence", Toast.LENGTH_SHORT).show();
+           return;
+       }
+
+       FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+       if (currentUser == null) {
+           Log.d(TAG, "saveGeofenceToFirebase: Current user is null");
+           Toast.makeText(MapsActivity.this, "User not authenticated", Toast.LENGTH_SHORT).show();
+           return;
+       }
+
+       String userId = currentUser.getUid();
+       DatabaseReference userRef = databaseReference.child("users").child(userId);
+       DatabaseReference petRef = userRef.child("pets").child(selectedPet.getName());
+       DatabaseReference geofenceRef = petRef.child("geofence");
+
+       Map<String, Object> geofenceData = new HashMap<>();
+       geofenceData.put("latitude", latLng.latitude);
+       geofenceData.put("longitude", latLng.longitude);
+       geofenceData.put("radius", radius);
+
+       geofenceRef.setValue(geofenceData)
+               .addOnSuccessListener(new OnSuccessListener<Void>() {
+                   @Override
+                   public void onSuccess(Void aVoid) {
+                       Log.d(TAG, "onSuccess: Geofence data saved under pet's node in Firebase...");
+                       Toast.makeText(MapsActivity.this, "Geofence saved to Firebase", Toast.LENGTH_SHORT).show();
+                   }
+               })
+               .addOnFailureListener(new OnFailureListener() {
+                   @Override
+                   public void onFailure(@NonNull Exception e) {
+                       Log.d(TAG, "onFailure: Failed to save geofence data under pet's node in Firebase. " + e.getMessage());
+                       Toast.makeText(MapsActivity.this, "Failed to save geofence to Firebase", Toast.LENGTH_SHORT).show();
+                   }
+               });
+   }
 
     private void addCircle(LatLng latLng, float radius) {
         CircleOptions circleOptions = new CircleOptions();
@@ -534,6 +645,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.addCircle(circleOptions);
     }
 }
+
 
 
 

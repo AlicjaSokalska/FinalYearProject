@@ -52,6 +52,9 @@ public class SetTargets extends AppCompatActivity {
         recommendedStepCountTextView = findViewById(R.id.recommendedStepCountTextView);
         saveButton = findViewById(R.id.saveButton);
         Button saveCatWeightGoalButton = findViewById(R.id.saveCatWeightGoalButton);
+Button saveOtherPetWeightGoalButton = findViewById(R.id.saveOtherPetWeightGoalButton);
+
+
 
         if ("Cat".equals(selectedPet.getType())) {
 
@@ -60,7 +63,7 @@ public class SetTargets extends AppCompatActivity {
             recommendedStepCountTextView.setText("Cats generally need around 30 minutes of exercise per day to stay healthy and happy.");
 
             saveButton.setVisibility(View.GONE);
-
+           saveOtherPetWeightGoalButton.setVisibility(View.GONE);
             saveCatWeightGoalButton.setVisibility(View.VISIBLE);
 
             saveCatWeightGoalButton.setOnClickListener(new View.OnClickListener() {
@@ -69,10 +72,29 @@ public class SetTargets extends AppCompatActivity {
                     saveCatWeightGoal();
                 }
             });
-        } else if ("Dog".equals(selectedPet.getType())) {
+        }
+       else  if ("Other".equals(selectedPet.getType())) {
+
+            activityGoalEditText.setEnabled(true);
+
+            recommendedStepCountTextView.setText("No recommendations");
+
+            saveButton.setVisibility(View.GONE);
 
             saveCatWeightGoalButton.setVisibility(View.GONE);
 
+
+            saveOtherPetWeightGoalButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    saveOtherPetWeightGoal();
+                }
+            });
+        }
+       else if ("Dog".equals(selectedPet.getType())) {
+
+            saveCatWeightGoalButton.setVisibility(View.GONE);
+            saveOtherPetWeightGoalButton.setVisibility(View.GONE);
             saveButton.setVisibility(View.VISIBLE);
 
             saveButton.setOnClickListener(new View.OnClickListener() {
@@ -85,6 +107,35 @@ public class SetTargets extends AppCompatActivity {
 
             retrieveHealthDetailsAndCalculateStepCount();
         }
+    }
+
+    private void saveOtherPetWeightGoal() {
+        String weightGoal = weightGoalEditText.getText().toString();
+        String activityGoal = activityGoalEditText.getText().toString();
+
+        DatabaseReference petHealthReference = FirebaseDatabase.getInstance().getReference()
+                .child("users")
+                .child(currentUserUid)
+                .child("pets")
+                .child(selectedPet.getName())
+                .child("health")
+                .child("petHealthTarget")
+                .child("weightGoal");
+
+        petHealthReference.setValue(Double.parseDouble(weightGoal));
+
+        DatabaseReference activityGoalReference = FirebaseDatabase.getInstance().getReference()
+                .child("users")
+                .child(currentUserUid)
+                .child("pets")
+                .child(selectedPet.getName())
+                .child("health")
+                .child("petHealthTarget")
+                .child("activityGoal");
+
+        activityGoalReference.setValue(Integer.parseInt(activityGoal));
+        Toast.makeText(this, "No recommended weight or activity goal for this pet on the system", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Pet weight goal and activity goal saved successfully", Toast.LENGTH_SHORT).show();
     }
 
     private void saveCatWeightGoal() {
@@ -143,53 +194,44 @@ public class SetTargets extends AppCompatActivity {
                             + "Recommended Step Count: " + recommendedStepCount);
                 }
             }
-
             @Override
             public void onCancelled(@NonNull DatabaseError databaseError) {
                 // Handle error if needed
             }
         });
     }
-
     private void saveTargets() {
         String weightGoal = weightGoalEditText.getText().toString();
         String activityGoal = activityGoalEditText.getText().toString();
-
 
         if (weightGoal.isEmpty() || activityGoal.isEmpty()) {
             Toast.makeText(this, "Please enter weight and activity goals", Toast.LENGTH_SHORT).show();
             return;
         }
 
-
         double weightGoalValue = Double.parseDouble(weightGoal);
-
-
 
         DatabaseReference petReference = FirebaseDatabase.getInstance().getReference()
                 .child("users")
                 .child(currentUserUid)
                 .child("pets")
                 .child(selectedPet.getName())
-                .child("health")
-                .child("breedWeightRange");
+                .child("health");
 
-        petReference.addListenerForSingleValueEvent(new ValueEventListener() {
+
+        // For cats and dogs, check breed weight range
+        petReference.child("breedWeightRange").addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 if (dataSnapshot.exists()) {
-                    // Retrieve the minimum and maximum weight values
                     double minWeight = dataSnapshot.child("first").getValue(Double.class);
                     double maxWeight = dataSnapshot.child("second").getValue(Double.class);
-
 
                     if (weightGoalValue < minWeight || weightGoalValue > maxWeight) {
                         Toast.makeText(SetTargets.this, "Weight goal should be within the breed weight range", Toast.LENGTH_SHORT).show();
                     } else {
-
                         System.out.println("Weight Goal: " + weightGoal);
                         System.out.println("Activity Goal: " + activityGoal);
-
                         compareTargetsWithRecommendation();
                         saveTargetsToFirebase(weightGoal, activityGoal);
                     }
@@ -206,7 +248,6 @@ public class SetTargets extends AppCompatActivity {
     }
 
 
-
     private void saveTargetsToFirebase(String weightGoal, String activityGoal) {
         DatabaseReference petHealthReference = FirebaseDatabase.getInstance().getReference()
                 .child("users")
@@ -215,9 +256,11 @@ public class SetTargets extends AppCompatActivity {
                 .child(selectedPet.getName())
                 .child("health");
 
+
+
         if ("Cat".equals(selectedPet.getType())) {
             petHealthReference = petHealthReference.child("catHealthTarget");
-            activityGoal = "30"; 
+            activityGoal = "30";
         } else if ("Dog".equals(selectedPet.getType())) {
             petHealthReference = petHealthReference.child("dogHealthTarget");
         }

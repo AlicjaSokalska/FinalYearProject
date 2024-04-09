@@ -71,10 +71,8 @@ public class ViewPetLocation extends AppCompatActivity {
         selectedPet = (Pet) intent.getSerializableExtra("selectedPet");
 
         // Display the selected pet information based on which one is available
-        if (selectedPetName != null) {
-            tvPetName.setText("Pet Name: " + selectedPetName);
-            displayPetLocation(selectedPetName);
-        } else if (selectedPet != null) {
+        if (selectedPet != null) {
+            selectedPetName = selectedPet.getName();
             tvPetName.setText("Pet Name: " + selectedPet.getName());
             displayPetLocation(selectedPet.getName());
         }
@@ -136,7 +134,7 @@ public class ViewPetLocation extends AppCompatActivity {
         }, UPDATE_INTERVAL);
     }
 
-    private void showPetLocationOnMap() {
+   /* private void showPetLocationOnMap() {
         String petNameToUse = selectedPetName != null ? selectedPetName : (selectedPet != null ? selectedPet.getName() : null);
         if (petNameToUse != null) {
             DatabaseReference petLocationRef = databaseReference.child("pets").child(petNameToUse).child("location");
@@ -166,7 +164,37 @@ public class ViewPetLocation extends AppCompatActivity {
         } else {
             Toast.makeText(ViewPetLocation.this, "No pet selected", Toast.LENGTH_SHORT).show();
         }
-    }
+    }*/private void showPetLocationOnMap() {
+       if (selectedPet != null) {
+           DatabaseReference petLocationRef = databaseReference.child("pets").child(selectedPet.getName()).child("location");
+           petLocationRef.addListenerForSingleValueEvent(new ValueEventListener() {
+               @Override
+               public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                   if (dataSnapshot.exists()) {
+                       PetLocation petLocation = dataSnapshot.getValue(PetLocation.class);
+                       if (petLocation != null) {
+                           Intent mapIntent = new Intent(ViewPetLocation.this, MapsActivity.class);
+                           mapIntent.putExtra("selectedPet", selectedPet);
+                           startActivity(mapIntent);
+                       } else {
+                           Toast.makeText(ViewPetLocation.this, "Pet location not available", Toast.LENGTH_SHORT).show();
+                       }
+                   } else {
+                       Toast.makeText(ViewPetLocation.this, "Pet not found", Toast.LENGTH_SHORT).show();
+                   }
+               }
+
+               @Override
+               public void onCancelled(@NonNull DatabaseError databaseError) {
+                   Toast.makeText(ViewPetLocation.this, "Error retrieving pet location", Toast.LENGTH_SHORT).show();
+               }
+           });
+       } else {
+           Toast.makeText(ViewPetLocation.this, "No pet selected", Toast.LENGTH_SHORT).show();
+       }
+   }
+
+
 
 
     private void displayPetLocation(String petName) {

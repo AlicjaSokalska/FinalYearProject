@@ -55,7 +55,7 @@ public class StartUpPage extends AppCompatActivity {
                     return true;
                 } else if (item.getItemId() == R.id.action_user_profile) {
 
-                    startActivity(new Intent(StartUpPage.this, UserProfile.class));
+                    startActivity(new Intent(StartUpPage.this,UserProfile.class));
                     return true;
                 } else if (item.getItemId() == R.id.action_map) {
 
@@ -64,7 +64,7 @@ public class StartUpPage extends AppCompatActivity {
                 }
                 else if (item.getItemId() == R.id.action_exercise) {
 
-                    startActivity(new Intent(StartUpPage.this, ChooseOption.class));
+                    startActivity(new Intent(StartUpPage.this, Reminders.class));
                     return true;
                 }
                 return false;
