@@ -6,18 +6,20 @@ public class Reminder {
     private String date;
     private boolean status;
     private String reminderId;
+    private String repeatOption;
 
     // Default constructor (required by Firebase)
     public Reminder() {
     }
 
-    public Reminder(String petName, String tag, String description, String date, boolean status, String reminderId) {
+    public Reminder(String petName, String tag, String description, String date, boolean status, String reminderId, String repeatOption) {
         this.petName = petName;
         this.tag = tag;
         this.description = description;
         this.date = date;
         this.status = status;
         this.reminderId = reminderId;
+        this.repeatOption = repeatOption;
     }
 
     // Getters and setters for Firebase to properly map data
@@ -56,10 +58,24 @@ public class Reminder {
     public boolean isStatus() {
         return status;
     }
+
+    public void setStatus(boolean status) {
+        this.status = status;
+    }
+
     public String getReminderId() {
         return reminderId;
     }
-    public void setStatus(boolean status) {
-        this.status = status;
+
+    public void setReminderId(String reminderId) {
+        this.reminderId = reminderId;
+    }
+
+    public String getRepeatOption() {
+        return repeatOption;
+    }
+
+    public void setRepeatOption(String repeatOption) {
+        this.repeatOption = repeatOption;
     }
 }

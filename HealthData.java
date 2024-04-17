@@ -1,9 +1,13 @@
 package com.example.testsample;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Pair;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -12,6 +16,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
@@ -20,6 +25,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
+import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -29,7 +35,7 @@ import java.util.Locale;
 import java.util.Map;
 
 public class HealthData extends AppCompatActivity {
-
+    private FirebaseAuth mAuth;
     private TextView currentWeightTextView;
     private TextView statusTextView;
     private TextView ageTextView;
@@ -41,7 +47,7 @@ public class HealthData extends AppCompatActivity {
     private TextView recommendedActivityTextView;
     private TextView foodTextView;
     private TextView weightGoalWeightTextView;
-    private TextView activityGoalTextView, weightRangeTextView,weeklyWeightTrendsTextView,predTextView,recommendedTextView;
+    private TextView activityGoalTextView, weightRangeTextView, weeklyWeightTrendsTextView, predTextView, recommendedTextView;
     private Pair<Double, Double> weightRange;
     private double petWeight;
     private Pet selectedPet;
@@ -57,6 +63,9 @@ public class HealthData extends AppCompatActivity {
     private boolean detailsVisibleFive = false;
     private boolean detailsVisibleSix = false;
     private TextView weeklyTrendsTextView;
+    private TextView currentActivityTextView;
+    private TextView activityComparisonTextView;
+    private ImageButton addTargetsBtn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,20 +87,24 @@ public class HealthData extends AppCompatActivity {
         activityGoalTextView = findViewById(R.id.activityGoalTextView);
         weeklyTrendsTextView = findViewById(R.id.weeklyTrendsTextView);
         weeklyWeightTrendsTextView = findViewById(R.id.weeklyWeightTrendsTextView);
-        recommendedTextView= findViewById(R.id.recommendedTextView);
+        recommendedTextView = findViewById(R.id.recommendedTextView);
         predTextView = findViewById(R.id.predTextView);
+        addTargetsBtn = findViewById(R.id.addTargetsBtn);
+        addTargetsBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                showSetTargetsDialog(selectedPet);
+
+            }
+        });
 
         final TextView healthDetailsTextView = findViewById(R.id.healthDetailsTextView);
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-      //  getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        //  getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
-        healthDetailsTextView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                toggleVisibility();
-            }
-        });
+
         final TextView recommendedDetailsTextView = findViewById(R.id.recommendedDetailsTextView);
         recommendedDetailsTextView.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -118,7 +131,7 @@ public class HealthData extends AppCompatActivity {
         predictionsTextView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-               // fetchAndDisplayWeightTrends();
+                // fetchAndDisplayWeightTrends();
                 toggleVisibilityFive();
 
             }
@@ -130,7 +143,6 @@ public class HealthData extends AppCompatActivity {
                 toggleVisibilitySix();
             }
         });
-
 
 
         // Fetch pet health data from Firebase or other sources
@@ -165,7 +177,7 @@ public class HealthData extends AppCompatActivity {
 
         displayWeightRange(selectedPet.getType(), selectedPet.getBreed());
         displayIdealWeight(selectedPet.getType(), selectedPet.getBreed(), weightRange);
-        DatabaseReference weightStatusRef =  FirebaseDatabase.getInstance().getReference()
+        DatabaseReference weightStatusRef = FirebaseDatabase.getInstance().getReference()
                 .child("users")
                 .child(currentUserUid)
                 .child("pets")
@@ -173,11 +185,74 @@ public class HealthData extends AppCompatActivity {
 
         displayWeightStatus(weightStatusRef);
 
+        healthDetailsTextView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if ("Cat".equalsIgnoreCase(selectedPet.getType())) {
+                    toggleVisibilityPartTWO();
+                } else {
+                    toggleVisibility();
+                }
+            }
+        });
 
         fetchCurrentWeight();
         fetchAndDisplayTrends();
         fetchAndDisplayWeightTrends();
+
+
+        //    displayAdditionalTrendInfo(recommendedStepCount, averageStepCountPerDay);
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation_pet);
+        bottomNavigationView.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
+            @Override
+            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+                if (item.getItemId() == R.id.navigation_home) {
+                    startActivity(new Intent(HealthData.this, StartUpPage.class));
+                    return true;
+                } else if (item.getItemId() == R.id.navigation_pet_tracker) {
+                    navigateToViewPetLocation();
+                    return true;
+                } else if (item.getItemId() == R.id.navigation_pet_health) {
+                    navigateToHealthActivity();
+                    return true;
+                } else if (item.getItemId() == R.id.navigation_pet_profile) {
+                    startActivity(new Intent(HealthData.this, DisplayPetProfile.class));
+                    finish();
+                    return true;
+                }
+                return false;
+            }
+        });
+
     }
+
+    private void showSetTargetsDialog(Pet pet) {
+        Intent intent = new Intent(this, SetTargets.class);
+        intent.putExtra("selectedPet", pet);
+        startActivity(intent);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        fetchCurrentWeight();
+        fetchAndDisplayTrends();
+        fetchAndDisplayWeightTrends();
+
+    }
+
+    private void navigateToHealthActivity() {
+        Intent intent = new Intent(this, HealthData.class);
+        intent.putExtra("selectedPet", selectedPet);
+        startActivity(intent);
+    }
+
+    private void navigateToViewPetLocation() {
+        Intent intent = new Intent(this, ViewPetLocation.class);
+        intent.putExtra("selectedPet", selectedPet); // Assuming selectedPet is the object representing the selected pet
+        startActivity(intent);
+    }
+
     private void fetchAndDisplayTrends() {
         DatabaseReference petReference = FirebaseDatabase.getInstance().getReference()
                 .child("users")
@@ -211,9 +286,14 @@ public class HealthData extends AppCompatActivity {
 
                     // Calculate the weekly average step count
                     int averageStepCountPerDay = daysWithActivity > 0 ? (int) (totalSteps / daysWithActivity) : 0;
+                    //double petWeight = selectedPet.getWeight(); // Assuming this method fetches pet weight
+                    int ageInMonths = calculateAgeInMonths(selectedPet.getDob()); // Assuming this method calculates age
+                    int recommendedStepCount = calculateRecommendedStepCount(petWeight, ageInMonths);
 
-                    // Call method to display the weekly average step count
-                    displayTrends(averageStepCountPerDay);
+
+                    displayTrends(averageStepCountPerDay, recommendedStepCount);
+
+
                 } else {
                     // Handle case where pet data does not exist
                     weeklyTrendsTextView.setText("No data available for trends");
@@ -228,9 +308,33 @@ public class HealthData extends AppCompatActivity {
         });
     }
 
-    private void displayTrends(int averageStepCountPerDay) {
+    private void displayTrends(int averageStepCountPerDay, int recommendedStepCount) {
+        // Call the original method to display the average step count per day
         weeklyTrendsTextView.setText("Average Step Count Per Day This Week: " + averageStepCountPerDay);
+
+        // Call the new method to display additional trend information
+        displayAdditionalTrendInfo(recommendedStepCount, averageStepCountPerDay);
     }
+
+    private void displayAdditionalTrendInfo(int recommendedStepCount, int averageStepCountPerDay) {
+        // Compare recommended steps with weekly average
+        String comparisonResult = compareStepCounts(recommendedStepCount, averageStepCountPerDay);
+
+        // Update the TextView to display the additional trend info
+        String displayText = "Activity Level: " + comparisonResult;
+        activityTextView.setText(displayText);
+    }
+
+    private String compareStepCounts(int recommendedStepCount, int averageStepCountPerDay) {
+        if (averageStepCountPerDay < recommendedStepCount) {
+            return "Underactive";
+        } else if (averageStepCountPerDay > recommendedStepCount) {
+            return "Overactive";
+        } else {
+            return "Ideal";
+        }
+    }
+
 
     private void fetchAndDisplayWeightTrends() {
         DatabaseReference petReference = FirebaseDatabase.getInstance().getReference()
@@ -247,27 +351,21 @@ public class HealthData extends AppCompatActivity {
                 if (dataSnapshot.exists()) {
                     double totalWeightChange = 0;
                     int weightDataCount = 0;
-
-                    // Initialize previous weight for comparison
                     double prevWeight = 0;
-
-                    // Loop through all weight data
                     for (DataSnapshot weightSnapshot : dataSnapshot.getChildren()) {
                         double weight = weightSnapshot.child("weight").getValue(Double.class);
 
-                        // If it's not the first entry, calculate weight change
                         if (prevWeight != 0) {
                             double weightChange = weight - prevWeight;
                             totalWeightChange += weightChange;
                             weightDataCount++;
                         }
-
-                        // Update previous weight for the next iteration
                         prevWeight = weight;
                     }
-
-                    // Calculate the average weight change
                     double averageWeightChange = weightDataCount > 0 ? totalWeightChange / weightDataCount : 0;
+
+                    DecimalFormat decimalFormat = new DecimalFormat("#.00");
+                    String formattedAverageWeightChange = decimalFormat.format(averageWeightChange);
 
                     // Determine if weight loss or gain
                     String trend;
@@ -279,10 +377,8 @@ public class HealthData extends AppCompatActivity {
                         trend = "No Change";
                     }
 
-                    // Display the average weight change with trend
-                    displayWeightTrends(averageWeightChange, trend);
+                    displayWeightTrends(Double.parseDouble(formattedAverageWeightChange), trend);
 
-                    // Fetch the target weight from Firebase
                     DatabaseReference targetWeightReference;
                     if (selectedPet.getType().equalsIgnoreCase("Dog")) {
                         targetWeightReference = FirebaseDatabase.getInstance().getReference()
@@ -316,7 +412,7 @@ public class HealthData extends AppCompatActivity {
                                 predictTimeToTargetWeight(petWeight, targetWeight, averageWeightChange);
                             } else {
                                 Toast.makeText(HealthData.this, "Target weight data not found", Toast.LENGTH_SHORT).show();
-                             }
+                            }
                         }
 
                         @Override
@@ -340,80 +436,12 @@ public class HealthData extends AppCompatActivity {
         });
     }
 
-/*
-    private void fetchAndDisplayWeightTrends() {
-    DatabaseReference petReference = FirebaseDatabase.getInstance().getReference()
-            .child("users")
-            .child(currentUserUid)
-            .child("pets")
-            .child(selectedPet.getName())
-            .child("health")
-            .child("weightData");
-
-    petReference.addListenerForSingleValueEvent(new ValueEventListener() {
-        @Override
-        public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-            if (dataSnapshot.exists()) {
-                double totalWeightChange = 0;
-                int weightDataCount = 0;
-
-                // Initialize previous weight for comparison
-                double prevWeight = 0;
-
-                // Loop through all weight data
-                for (DataSnapshot weightSnapshot : dataSnapshot.getChildren()) {
-                    double weight = weightSnapshot.child("weight").getValue(Double.class);
-
-                    // If it's not the first entry, calculate weight change
-                    if (prevWeight != 0) {
-                        double weightChange = weight - prevWeight;
-                        totalWeightChange += weightChange;
-                        weightDataCount++;
-                    }
-
-                    // Update previous weight for the next iteration
-                    prevWeight = weight;
-                }
-
-                // Calculate the average weight change
-                double averageWeightChange = weightDataCount > 0 ? totalWeightChange / weightDataCount : 0;
-
-                // Determine if weight loss or gain
-                String trend;
-                if (averageWeightChange < 0) {
-                    trend = "Weight Loss";
-                } else if (averageWeightChange > 0) {
-                    trend = "Weight Gain";
-                } else {
-                    trend = "No Change";
-                }
-
-                // Display the average weight change with trend
-                displayWeightTrends(averageWeightChange, trend);
-                // Call predictTimeToTargetWeight method here
-                  predictTimeToTargetWeight(petWeight, targetWeight, averageWeightChange);
-
-
-
-
-            } else {
-                // Handle case where weight data does not exist
-                weeklyWeightTrendsTextView.setText("No weight data available");
-            }
-        }
-
-        @Override
-        public void onCancelled(@NonNull DatabaseError databaseError) {
-            // Handle onCancelled event
-            weeklyWeightTrendsTextView.setText("Error fetching weight data");
-        }
-    });
-}*/
 
     private void displayWeightTrends(double averageWeightChange, String trend) {
         weeklyWeightTrendsTextView.setText("Average Weight Change: " + averageWeightChange + " (" + trend + ")");
 
     }
+
     private void predictTimeToTargetWeight(double currentWeight, double targetWeight, double averageWeightChangePerWeek) {
         double rateOfChangePerWeek = averageWeightChangePerWeek; // Assuming averageWeightChangePerWeek is in pounds/week
 
@@ -421,21 +449,20 @@ public class HealthData extends AppCompatActivity {
         if (rateOfChangePerWeek == 0) {
             // Provide a message indicating that weight is not changing
             predTextView.setText("Weight is not changing. Adjust calorie intake and activity.");
-
-            // You may want to add logic here to suggest adjustments to calorie intake and activity
             return;
         }
+        double maxAllowableLossPerWeek = 0.08 * currentWeight; // Assuming max loss is 1-2%
+        double actualRateOfChangePerWeek;
+        if (currentWeight < targetWeight) {
+            // Pet needs to gain weight, so actual rate of change should be positive
+            actualRateOfChangePerWeek = Math.max(rateOfChangePerWeek, maxAllowableLossPerWeek);
+        } else {
+            // Pet needs to lose weight, so actual rate of change should be negative
+            actualRateOfChangePerWeek = Math.min(rateOfChangePerWeek, -maxAllowableLossPerWeek);
+        }
 
-        // Calculate the maximum allowable weight loss per week for cats (1-2% of total body weight)
-        double maxAllowableLossPerWeek = 0.02 * currentWeight; // Assuming max loss is 1-2%
-
-        // Determine the actual rate of change based on the constraint
-        double actualRateOfChangePerWeek = Math.min(rateOfChangePerWeek, -maxAllowableLossPerWeek);
-
-        // Calculate the number of weeks required to reach the target weight
         double weeksToTargetWeight = Math.abs((targetWeight - currentWeight) / actualRateOfChangePerWeek);
 
-        // Convert weeks to days if less than one week
         double daysToTargetWeight;
         String timeUnit;
         if (weeksToTargetWeight < 1) {
@@ -467,29 +494,30 @@ public class HealthData extends AppCompatActivity {
                 predictionMessage = String.format(Locale.getDefault(), "Estimated time to reach target weight loss: %.1f %s", daysToTargetWeight, timeUnit);
             }
         } else {
-            predictionMessage = "The pet is already at the target weight.";
+            // Pet is already at the target weight
+            predictionMessage = "Pet has reached target weight. Maintain current calorie intake and activity levels to sustain weight.";
         }
 
         // Display the prediction message
         predTextView.setText(predictionMessage);
 
         // Provide recommendations based on the rate of weight change
-        // Provide recommendations based on the rate of weight change
-        if (actualRateOfChangePerWeek < 0) {
-            // Weight loss is too slow, recommend decreasing calorie intake and increasing activity
-            recommendedTextView.setText("Recommendation: Consider decreasing calorie intake and increasing activity levels to facilitate weight loss.");
+        if (actualRateOfChangePerWeek < -0.10 * currentWeight) {
+            // Weight loss is too rapid, recommend decreasing calorie intake and increasing activity
+            recommendedTextView.setText("Recommendation: Pet should not lose more than 10% of body weight per week, as it is dangerous.");
         } else if (actualRateOfChangePerWeek > 0) {
             // Weight gain is too slow, recommend increasing calorie intake and decreasing activity
             recommendedTextView.setText("Recommendation: Consider increasing calorie intake and decreasing activity levels to promote weight gain.");
         } else {
-            // No change in weight, provide general recommendations
-            recommendedTextView.setText("Recommendation: Maintain current calorie intake and activity levels for weight maintenance.");
+            // If there's no change in weight, it's recommended to maintain the current calorie intake and ensure to achieve the daily step target for weight maintenance.
+            recommendedTextView.setText("Recommendation: Maintain current calorie intake and ensure to meet the daily step target to maintain weight.");
         }
     }
 
 
-
         private void displayRecommendedActivity(double petWeight, int ageInMonths) {
+        Log.d("DEBUG", "Displaying recommended activity...");
+
         // Calculate recommended step count here
         Log.d("DEBUG", "Pet Weight: " + petWeight);
         Log.d("DEBUG", "Age in Months: " + ageInMonths);
@@ -498,13 +526,20 @@ public class HealthData extends AppCompatActivity {
         int recommendedStepCount = calculateRecommendedStepCount(petWeight, ageInMonths);
         Log.d("DEBUG", "Recommended Step Count: " + recommendedStepCount);
 
+        if (selectedPet == null) {
+            Log.e("DEBUG", "Selected pet is null");
+            return;
+        }
+
         if (selectedPet.getType().equalsIgnoreCase("Dog")) {
+            Log.d("DEBUG", "Setting recommended activity for Dog...");
             recommendedActivityTextView.setText("Recommended Step Count: " + recommendedStepCount);
         } else if (selectedPet.getType().equalsIgnoreCase("Cat")) {
-            // Set a default recommendation for cats
+            Log.d("DEBUG", "Setting recommended activity for Cat...");
             recommendedActivityTextView.setText("Recommended Activity : Cats generally need around 30 minutes of exercise per day to stay healthy and happy.");
         } else {
-            // No recommendation available for other pets
+            // For other pet types
+            Log.d("DEBUG", "No recommendations for other pet types...");
             recommendedActivityTextView.setText("No recommendations");
         }
     }
@@ -530,10 +565,6 @@ public class HealthData extends AppCompatActivity {
     }
 
 
-
-
-
-
     private void displayIdealWeight(String petType, String breed, Pair<Double, Double> weightRange) {
         String idealWeight = "N/A";
         if (petType != null && breed != null && weightRange != null) {
@@ -552,6 +583,7 @@ public class HealthData extends AppCompatActivity {
             return null; // Return null if weight range is not available
         }
     }
+
     private void displayWeightStatus(DatabaseReference weightStatusRef) {
         weightStatusRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -577,8 +609,6 @@ public class HealthData extends AppCompatActivity {
             }
         });
     }
-
-
 
 
     private void displayWeightRange(String petType, String breed) {
@@ -608,6 +638,7 @@ public class HealthData extends AppCompatActivity {
 
         return breedWeightMap.getOrDefault(breed, new Pair<>(8.0, 10.0));
     }//to do fix to add all breed
+
     private Pair<Double, Double> getDogBreedWeightRange(String breed) {
         Map<String, Pair<Double, Double>> breedWeightMap = new HashMap<>();
         breedWeightMap.put("Affenpinscher", new Pair<>(7.0, 10.0));
@@ -871,8 +902,8 @@ public class HealthData extends AppCompatActivity {
         breedWeightMap.put("Xoloitzcuintli", new Pair<>(10.0, 50.0));
         breedWeightMap.put("Yorkshire Terrier", new Pair<>(4.0, 7.0));
 
-        return breedWeightMap.getOrDefault(breed, new Pair<>(0.0, 0.0));}
-
+        return breedWeightMap.getOrDefault(breed, new Pair<>(0.0, 0.0));
+    }
 
 
     private String calculateLifeStage(String species, int ageInMonths) {
@@ -886,7 +917,6 @@ public class HealthData extends AppCompatActivity {
             // Handle other species
             return "Unknown";
         }
-
 
 
     }
@@ -917,96 +947,108 @@ public class HealthData extends AppCompatActivity {
         if (dateOfBirth != null && !dateOfBirth.isEmpty()) {
             Calendar currentDate = Calendar.getInstance();
 
-            SimpleDateFormat dateFormat = new SimpleDateFormat("ddMMyyyy", Locale.getDefault());
-            Date petDOB;
-            try {
-                petDOB = dateFormat.parse(dateOfBirth);
-            } catch (ParseException e) {
-                e.printStackTrace();
-                return -1;
+            // Define the date formats to try
+            SimpleDateFormat[] dateFormats = {
+                    new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
+                    new SimpleDateFormat("ddMMyyyy", Locale.getDefault())
+            };
+
+            // Try parsing the date with each format
+            for (SimpleDateFormat dateFormat : dateFormats) {
+                try {
+                    Date petDOB = dateFormat.parse(dateOfBirth);
+                    Calendar petDOBDate = Calendar.getInstance();
+                    petDOBDate.setTime(petDOB);
+
+                    int years = currentDate.get(Calendar.YEAR) - petDOBDate.get(Calendar.YEAR);
+                    int months = currentDate.get(Calendar.MONTH) - petDOBDate.get(Calendar.MONTH);
+                    int days = currentDate.get(Calendar.DAY_OF_MONTH) - petDOBDate.get(Calendar.DAY_OF_MONTH);
+
+                    if (days < 0) {
+                        months--;
+                        days += currentDate.getActualMaximum(Calendar.DAY_OF_MONTH);
+                    }
+                    if (months < 0) {
+                        years--;
+                        months += 12;
+                    }
+
+                    int ageInMonths = years * 12 + months;
+
+                    return ageInMonths;
+                } catch (ParseException e) {
+                    // Ignore parsing errors and try the next format
+                }
             }
-
-            Calendar petDOBDate = Calendar.getInstance();
-            petDOBDate.setTime(petDOB);
-
-            int years = currentDate.get(Calendar.YEAR) - petDOBDate.get(Calendar.YEAR);
-            int months = currentDate.get(Calendar.MONTH) - petDOBDate.get(Calendar.MONTH);
-            int days = currentDate.get(Calendar.DAY_OF_MONTH) - petDOBDate.get(Calendar.DAY_OF_MONTH);
-
-            if (days < 0) {
-                months--;
-                days += currentDate.getActualMaximum(Calendar.DAY_OF_MONTH);
-            }
-            if (months < 0) {
-                years--;
-                months += 12;
-            }
-
-
-            int ageInMonths = years * 12 + months;
-
-            return ageInMonths;
-        } else {
-            return -1;
         }
+
+        // Return -1 if date is invalid or empty
+        return -1;
     }
 
     private String calculateAgeFromDOB(String dateOfBirth) {
         if (dateOfBirth != null && !dateOfBirth.isEmpty()) {
-
             Calendar currentDate = Calendar.getInstance();
 
-            SimpleDateFormat dateFormat = new SimpleDateFormat("ddMMyyyy", Locale.getDefault());
-            Date petDOB;
-            try {
-                petDOB = dateFormat.parse(dateOfBirth);
-            } catch (ParseException e) {
-                e.printStackTrace();
-                return "Error";
-            }
-            Calendar petDOBDate = Calendar.getInstance();
-            petDOBDate.setTime(petDOB);
+            // Define the date formats to try
+            SimpleDateFormat[] dateFormats = {
+                    new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
+                    new SimpleDateFormat("ddMMyyyy", Locale.getDefault())
+            };
 
-            int years = currentDate.get(Calendar.YEAR) - petDOBDate.get(Calendar.YEAR);
-            int months = currentDate.get(Calendar.MONTH) - petDOBDate.get(Calendar.MONTH);
-            int days = currentDate.get(Calendar.DAY_OF_MONTH) - petDOBDate.get(Calendar.DAY_OF_MONTH);
+            // Try parsing the date with each format
+            for (SimpleDateFormat dateFormat : dateFormats) {
+                try {
+                    Date petDOB = dateFormat.parse(dateOfBirth);
+                    Calendar petDOBDate = Calendar.getInstance();
+                    petDOBDate.setTime(petDOB);
 
-            if (days < 0) {
-                months--;
-                days += currentDate.getActualMaximum(Calendar.DAY_OF_MONTH);
-            }
-            if (months < 0) {
-                years--;
-                months += 12;
-            }
-            StringBuilder ageStringBuilder = new StringBuilder();
-            if (years > 0) {
-                ageStringBuilder.append(years).append(" year");
-                if (years > 1) {
-                    ageStringBuilder.append("s");
-                }
-                ageStringBuilder.append(" ");
-            }
-            if (months > 0) {
-                ageStringBuilder.append(months).append(" month");
-                if (months > 1) {
-                    ageStringBuilder.append("s");
-                }
-                ageStringBuilder.append(" ");
-            }
-            if (days > 0) {
-                ageStringBuilder.append(days).append(" day");
-                if (days > 1) {
-                    ageStringBuilder.append("s");
-                }
-            }
+                    int years = currentDate.get(Calendar.YEAR) - petDOBDate.get(Calendar.YEAR);
+                    int months = currentDate.get(Calendar.MONTH) - petDOBDate.get(Calendar.MONTH);
+                    int days = currentDate.get(Calendar.DAY_OF_MONTH) - petDOBDate.get(Calendar.DAY_OF_MONTH);
 
-            return ageStringBuilder.toString();
-        } else {
-            return "Date of Birth is not available";
+                    if (days < 0) {
+                        months--;
+                        days += currentDate.getActualMaximum(Calendar.DAY_OF_MONTH);
+                    }
+                    if (months < 0) {
+                        years--;
+                        months += 12;
+                    }
+
+                    StringBuilder ageStringBuilder = new StringBuilder();
+                    if (years > 0) {
+                        ageStringBuilder.append(years).append(" year");
+                        if (years > 1) {
+                            ageStringBuilder.append("s");
+                        }
+                        ageStringBuilder.append(" ");
+                    }
+                    if (months > 0) {
+                        ageStringBuilder.append(months).append(" month");
+                        if (months > 1) {
+                            ageStringBuilder.append("s");
+                        }
+                        ageStringBuilder.append(" ");
+                    }
+                    if (days > 0) {
+                        ageStringBuilder.append(days).append(" day");
+                        if (days > 1) {
+                            ageStringBuilder.append("s");
+                        }
+                    }
+
+                    return ageStringBuilder.toString();
+                } catch (ParseException e) {
+                    // Ignore parsing errors and try the next format
+                }
+            }
         }
 
+        // Return "Date of Birth is not available" if date is invalid or empty
+        return "Date of Birth is not available";
     }
+
 
     private void fetchCurrentWeight() {
         petReference.child("health").child("weight").addListenerForSingleValueEvent(new ValueEventListener() {
@@ -1040,6 +1082,7 @@ public class HealthData extends AppCompatActivity {
             }
         });
     }
+
     private void fetchTargetData() {
         petReference.child("health").addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -1081,33 +1124,42 @@ public class HealthData extends AppCompatActivity {
         });
     }
 
-
     private void displayPetFoodRecommendation(double petWeight) {
+        // Validate pet weight
+        if (petWeight <= 0) {
+            // Handle invalid weight
+            foodTextView.setText("Invalid weight provided.");
+            return;
+        }
+
         // Calculate recommended calories per day based on pet weight
         int recommendedCaloriesPerDay;
         if (selectedPet.getType().equalsIgnoreCase("Dog")) {
-            if (petWeight < 20) {
+            // Recommended calories per day for dogs
+            if (petWeight < weightRange.first) {
+                recommendedCaloriesPerDay = (int) (petWeight * 50);
+            } else if (petWeight <= weightRange.second) {
                 recommendedCaloriesPerDay = (int) (petWeight * 40);
-            } else if (petWeight <= 50) {
-                recommendedCaloriesPerDay = (int) (petWeight * 30);
             } else {
-                recommendedCaloriesPerDay = (int) (petWeight * 20);
+                recommendedCaloriesPerDay = (int) (petWeight * 30);
+            }
+
+            // Adjust recommendation based on weight status
+            if (petWeight > weightRange.second) {
+                recommendedCaloriesPerDay -= 100; // Decrease calories for overweight dogs
+            } else if (petWeight < weightRange.first) {
+                recommendedCaloriesPerDay += 800; // Increase calories for underweight dogs
             }
         } else if (selectedPet.getType().equalsIgnoreCase("Cat")) {
-            // For cats, use the new logic
+            // Recommended calories per day for cats
             recommendedCaloriesPerDay = (int) (petWeight * 30);
 
-            // Adjust recommendation for overweight cats
-           if (petWeight > weightRange.second) {
-                recommendedCaloriesPerDay -= 5;
+            // Adjust recommendation based on weight status
+            if (petWeight > weightRange.second) {
+                recommendedCaloriesPerDay -= 5; // Decrease calories for overweight cats
+            } else if (petWeight < weightRange.first) {
+                recommendedCaloriesPerDay += 5; // Increase calories for underweight cats
             }
-            // Adjust recommendation for underweight cats
-            else if (petWeight < weightRange.first) {
-                recommendedCaloriesPerDay += 5;
-            }
-
-           /* // Ensure the recommendation is within the range of 24 to 35 calories per pound
-            recommendedCaloriesPerDay = Math.max(24, Math.min(35, recommendedCaloriesPerDay));*/
         } else {
             // Handle other types of pets here
             recommendedCaloriesPerDay = 0; // No recommendation available
@@ -1129,6 +1181,7 @@ public class HealthData extends AppCompatActivity {
             detailsVisibleSix = true;
         }
     }
+
     private void toggleVisibilityFive() {
         if (detailsVisibleFive) {
             findViewById(R.id.predTextView).setVisibility(View.GONE);
@@ -1140,17 +1193,21 @@ public class HealthData extends AppCompatActivity {
             detailsVisibleFive = true;
         }
     }
+
     private void toggleVisibilityFour() {
         if (detailsVisibleFour) {
+            findViewById(R.id.addTargetsBtn).setVisibility(View.GONE);
             findViewById(R.id.weightGoalWeightTextView).setVisibility(View.GONE);
             findViewById(R.id.activityGoalTextView).setVisibility(View.GONE);
             detailsVisibleFour = false;
         } else {
+            findViewById(R.id.addTargetsBtn).setVisibility(View.VISIBLE);
             findViewById(R.id.weightGoalWeightTextView).setVisibility(View.VISIBLE);
             findViewById(R.id.activityGoalTextView).setVisibility(View.VISIBLE);
             detailsVisibleFour = true;
         }
     }
+
 
     private void toggleVisibilityThree() {
         ImageView dogImage = findViewById(R.id.dogweightImage);
@@ -1173,6 +1230,7 @@ public class HealthData extends AppCompatActivity {
             detailsVisibleThree = true;
         }
     }
+
     private void toggleVisibilityTwo() {
         if (detailsVisibleTwo) {
             findViewById(R.id.idealWeightTextView).setVisibility(View.GONE);
@@ -1188,6 +1246,7 @@ public class HealthData extends AppCompatActivity {
             detailsVisibleTwo = true;
         }
     }
+
     private void toggleVisibility() {
         if (detailsVisibleOne) {
             findViewById(R.id.currentWeightTextView).setVisibility(View.GONE);
@@ -1195,8 +1254,8 @@ public class HealthData extends AppCompatActivity {
             findViewById(R.id.ageTextView).setVisibility(View.GONE);
             findViewById(R.id.breedTextView).setVisibility(View.GONE);
             findViewById(R.id.lifeStageTextView).setVisibility(View.GONE);
+
             findViewById(R.id.activityTextView).setVisibility(View.GONE);
-            // findViewById(R.id.divider1).setVisibility(View.GONE);
             detailsVisibleOne = false;
         } else {
             findViewById(R.id.currentWeightTextView).setVisibility(View.VISIBLE);
@@ -1204,9 +1263,59 @@ public class HealthData extends AppCompatActivity {
             findViewById(R.id.ageTextView).setVisibility(View.VISIBLE);
             findViewById(R.id.breedTextView).setVisibility(View.VISIBLE);
             findViewById(R.id.lifeStageTextView).setVisibility(View.VISIBLE);
+
             findViewById(R.id.activityTextView).setVisibility(View.VISIBLE);
-            // findViewById(R.id.divider1).setVisibility(View.VISIBLE);
             detailsVisibleOne = true;
+        }
+    }
+
+    private void toggleVisibilityPartTWO() {
+        if (detailsVisibleOne) {
+            findViewById(R.id.currentWeightTextView).setVisibility(View.GONE);
+            findViewById(R.id.statusTextView).setVisibility(View.GONE);
+            findViewById(R.id.ageTextView).setVisibility(View.GONE);
+            findViewById(R.id.breedTextView).setVisibility(View.GONE);
+            findViewById(R.id.lifeStageTextView).setVisibility(View.GONE);
+
+            findViewById(R.id.activityTextView).setVisibility(View.GONE);
+            detailsVisibleOne = false;
+        } else {
+            findViewById(R.id.currentWeightTextView).setVisibility(View.VISIBLE);
+            findViewById(R.id.statusTextView).setVisibility(View.VISIBLE);
+            findViewById(R.id.ageTextView).setVisibility(View.VISIBLE);
+            findViewById(R.id.breedTextView).setVisibility(View.VISIBLE);
+            findViewById(R.id.lifeStageTextView).setVisibility(View.VISIBLE);
+
+            findViewById(R.id.activityTextView).setVisibility(View.GONE);
+            detailsVisibleOne = true;
+        }
+    }
+
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.mode_menu, menu);
+        return true;
+    }
+
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int itemId = item.getItemId();
+
+        if (itemId == R.id.menuReturnToModeSelection) {
+
+            Intent returnToModeIntent = new Intent(HealthData.this, SelectMode.class);
+            startActivity(returnToModeIntent);
+            finish();
+            return true;
+        } else if (itemId == R.id.menuSignOut) {
+
+            mAuth.signOut();
+            Intent signOutIntent = new Intent(HealthData.this, Login.class);
+            startActivity(signOutIntent);
+            finish();
+            return true;
+        } else {
+            return super.onOptionsItemSelected(item);
         }
     }
 

@@ -4,11 +4,15 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.InputType;
 import android.text.TextUtils;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -17,6 +21,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
@@ -30,6 +35,9 @@ import com.google.firebase.database.ValueEventListener;
 import org.json.JSONArray;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -41,12 +49,13 @@ public class PetWeightData extends AppCompatActivity {
     private ListView weightLogsListView;
     private ArrayAdapter<String> weightLogsAdapter;
 
+    private double averageWeightChangePerWeek;
 
-
+    private FirebaseAuth mAuth;
     private TextView currentWeightTextView;
     private TextView weightStatusTextView;
     private TextView idealWeightTextView;
-    private TextView weightRangeTextView, startWeightTextView, endWeightTextView;
+    private TextView weightRangeTextView, startWeightTextView, endWeightTextView,trend1TextView, trend2TextView,trend3TextView,predictionTextView1,predictionTextView2,predictionTextView3;
     private TextView weightTargetTextView;
     private TextView petNameTextView;
     private WebView chartWebView;
@@ -54,6 +63,7 @@ public class PetWeightData extends AppCompatActivity {
     private DatabaseReference userWeightsReference;
     private ValueEventListener weightEventListener;
     private ProgressBar weightProgressBar;
+    private ImageButton addWeightBtn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,9 +79,19 @@ public class PetWeightData extends AppCompatActivity {
         startWeightTextView = findViewById(R.id.startWeightTextView);
         endWeightTextView = findViewById(R.id.endWeightTextView);
         chartWebView = findViewById(R.id.chartWebView);
+        addWeightBtn = findViewById(R.id.addWeightBtn);
+      trend1TextView = findViewById(R.id.trend1);
+        trend2TextView = findViewById(R.id.trend2);
+        trend3TextView= findViewById(R.id.trend3);
+
+        predictionTextView1= findViewById(R.id.predictionTextView1);
+        predictionTextView2= findViewById(R.id.predictionTextView2);
+        predictionTextView3= findViewById(R.id.predictionTextView3);
 
 
-        // Initialize ListView and adapter
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
         weightLogsListView = findViewById(R.id.weightLogsListView);
         weightLogsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1);
         weightLogsListView.setAdapter(weightLogsAdapter);
@@ -89,17 +109,13 @@ public class PetWeightData extends AppCompatActivity {
                 showUpdateOrDeleteDialog(entryDate, weight);
             }
         });
-
-
-
-
-        weightProgressBar = findViewById(R.id.weightProgressBar);
+ weightProgressBar = findViewById(R.id.weightProgressBar);
 
 
         selectedPet = (Pet) getIntent().getSerializableExtra("selectedPet"); // Retrieve selected pet from intent
 
         if (selectedPet != null) {
-            petNameTextView.setText("Pet Name: " + selectedPet.getName());
+            petNameTextView.setText("Pet: " + selectedPet.getName());
             FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
             if (currentUser != null) {
                 userWeightsReference = FirebaseDatabase.getInstance().getReference()
@@ -114,37 +130,136 @@ public class PetWeightData extends AppCompatActivity {
             Toast.makeText(this, "No pet selected!", Toast.LENGTH_SHORT).show();
             finish();
         }
-        BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation_weight);
-        bottomNavigationView.setOnNavigationItemSelectedListener(item -> {
-            if (item.getItemId() == R.id.navigation_add_weight) {
+
+        addWeightBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
                 showAddWeightDialog();
-                return true;
-            } else if (item.getItemId() == R.id.navigation_pet_profile) {
-                startActivity(new Intent(this, DisplayPetProfile.class));
-                finish();
-                return true;
-            } else if (item.getItemId() == R.id.navigation_home) {
-                startActivity(new Intent(this, StartUpPage.class));
-                return true;
             }
-            return false;
+        });
+
+
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation_pet);
+        bottomNavigationView.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
+            @Override
+            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+                if (item.getItemId() == R.id.navigation_home) {
+                    startActivity(new Intent(PetWeightData.this, StartUpPage.class));
+                    return true;
+                } else if (item.getItemId() ==  R.id.navigation_pet_tracker) {
+                    navigateToViewPetLocation();
+                    return true;
+                } else if (item.getItemId() == R.id.navigation_pet_health) {
+                    navigateToHealthActivity();
+                    return true;}
+                else if (item.getItemId() == R.id.navigation_pet_profile) {
+                    startActivity(new Intent(PetWeightData.this, DisplayPetProfile.class));
+                    finish();
+                    return true;
+                }
+                return false;
+            }
         });
 
     }
 
+    private void displayWeightTrends(Long currentWeightLong, String weightTarget) {
+        if (!weightDataList.isEmpty()) {
+            // Calculate total weight change since the first weight data entry
+            double weightChange = currentWeightLong - weightDataList.get(0);
+            String trend1 = "Total weight change since first entry: " + String.format("%.2f", weightChange);
+
+            // Calculate average weight change per entry
+            double totalWeightChange = 0;
+            for (double weight : weightDataList) {
+                totalWeightChange += weight;
+            }
+            double averageWeightChangePerEntry = totalWeightChange / weightDataList.size();
+            String trend2 = "Average weight change per entry: " + String.format("%.2f", averageWeightChangePerEntry);
+
+            // Calculate average weight change per week
+            long daysBetweenFirstAndLastEntry = ChronoUnit.DAYS.between(
+                    LocalDate.parse(entryDates.get(0), DateTimeFormatter.ofPattern("yyyy-MM-dd")),
+                    LocalDate.parse(entryDates.get(entryDates.size() - 1), DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+            );
+            double weeks = daysBetweenFirstAndLastEntry / 7.0;
+            double averageWeightChangePerWeek = weightChange / weeks;
+            String trend3 = "Average weight change per week: " + String.format("%.2f", averageWeightChangePerWeek);
+
+            // Display trends
+            trend1TextView.setText(trend1);
+            trend2TextView.setText(trend2);
+            trend3TextView.setText(trend3);
+
+
+
+        }
+    }
+
+    private void predictions(long currentWeightLong, long targetWeight, long firstBreedWeightRange, long secondBreedWeightRange, double averageWeightChangePerWeek) {
+        double currentWeight = (double) currentWeightLong;
+        double targetWeightDouble = (double) targetWeight;
+        double averageWeightChangePerWeekDouble = averageWeightChangePerWeek;
+
+        // Calculate the maximum allowable weight loss per week for pets (8% of total body weight)
+        double maxAllowableLossPerWeek = 0.08 * currentWeight;
+
+        // Ensure that the maximum allowable loss per week is not more than 10% of the body weight
+        maxAllowableLossPerWeek = Math.min(maxAllowableLossPerWeek, 0.1 * currentWeight);
+
+        double actualRateOfChangePerWeek = Math.min(averageWeightChangePerWeekDouble, -maxAllowableLossPerWeek);
+        double weeksToTargetWeight = Math.abs((targetWeightDouble - currentWeight) / actualRateOfChangePerWeek);
+        double daysToTargetWeight;
+        String timeUnit;
+        if (weeksToTargetWeight < 1) {
+            daysToTargetWeight = weeksToTargetWeight * 7;
+            timeUnit = "days";
+        } else {
+            daysToTargetWeight = weeksToTargetWeight * 7;
+            timeUnit = "weeks";
+        }
+        String predictionMessage;
+        if (actualRateOfChangePerWeek > 0) {
+            if (currentWeight < targetWeightDouble) {
+                predictionMessage = String.format(Locale.getDefault(), "Estimated time to reach target weight gain: %.1f %s", daysToTargetWeight, timeUnit);
+            } else {
+                // Pet is overweight, calculate time to lose weight
+                predictionMessage = String.format(Locale.getDefault(), "Estimated time to reach target weight loss: %.1f %s", daysToTargetWeight, timeUnit);
+            }
+        } else if (actualRateOfChangePerWeek < 0) {
+            // Pet is losing weight
+            if (currentWeight < targetWeightDouble) {
+                // Pet is underweight, calculate time to reach target weight gain
+                predictionMessage = String.format(Locale.getDefault(), "Estimated time to reach target weight gain: %.1f %s", daysToTargetWeight, timeUnit);
+            } else {
+                // Pet is overweight, calculate time to lose weight
+                predictionMessage = String.format(Locale.getDefault(), "Estimated time to reach target weight loss: %.1f %s", daysToTargetWeight, timeUnit);
+            }
+        } else {
+            predictionMessage = "The pet is already at the target weight.";
+        }
+
+        // Check if the rate of change is too high and add a warning message
+        if (actualRateOfChangePerWeek < -0.10 * currentWeight) {
+            String warningMessage = "Warning: Pet should not lose more than 10% of body weight per week, as it is dangerous";
+            // Display the warning message
+            predictionTextView2.setText(warningMessage);
+        }
+
+        // Display the prediction message
+        predictionTextView1.setText(predictionMessage);
+    }
 
     private void showUpdateOrDeleteDialog(String entryDate, double weight) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Update or Delete Weight Data");
         builder.setMessage("Choose an action:");
-
-        // Add buttons for update and delete actions
         builder.setPositiveButton("Update", (dialog, which) -> {
-            // Show dialog for updating weight
+
             showUpdateWeightDialog(entryDate, weight);
         });
         builder.setNegativeButton("Delete", (dialog, which) -> {
-            // Delete the weight data
+
             deleteWeightData(entryDate);
         });
 
@@ -229,26 +344,19 @@ public class PetWeightData extends AppCompatActivity {
     }
 
     private void updateWeightGraph() {
-        // Convert weight data list to JSON array for WebView
         JSONArray jsonArray = new JSONArray(weightDataList);
         String weightDataJson = jsonArray.toString();
-
-        // Load JavaScript function to update graph with new weight data
-        String jsFunction = "updateGraph('" + weightDataJson + "')";
+ String jsFunction = "updateGraph('" + weightDataJson + "')";
         chartWebView.evaluateJavascript(jsFunction, null);
     }
 
     private void showAddWeightDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Add Weight");
-
-        // Set up the input
-        final EditText input = new EditText(this);
+ final EditText input = new EditText(this);
         input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         builder.setView(input);
-
-        // Set up the buttons
-        builder.setPositiveButton("OK", (dialog, which) -> {
+ builder.setPositiveButton("OK", (dialog, which) -> {
             String weightInput = input.getText().toString();
             if (!TextUtils.isEmpty(weightInput)) {
                 try {
@@ -275,32 +383,23 @@ public class PetWeightData extends AppCompatActivity {
 
     private void saveWeightToFirebase(double weight, Pet selectedPet) {
         if (userWeightsReference != null && selectedPet != null) {
-            // Get the current date as a string
             String currentDate = getCurrentDateAsString();
-
-            // Push new weight and entry date to weightData node
-            DatabaseReference weightDataRef = userWeightsReference.child(currentDate);
+ DatabaseReference weightDataRef = userWeightsReference.child(currentDate);
             weightDataRef.child("weight").setValue(weight);
             weightDataRef.child("entryDate").setValue(currentDate);
-
-            // Update current weight in the health node
-            DatabaseReference currentWeightRef = FirebaseDatabase.getInstance().getReference()
+ DatabaseReference currentWeightRef = FirebaseDatabase.getInstance().getReference()
                     .child("users").child(FirebaseAuth.getInstance().getCurrentUser().getUid())
                     .child("pets").child(selectedPet.getName()).child("health").child("weight");
-            currentWeightRef.setValue(weight); // Update current weight in Firebase
+            currentWeightRef.setValue(weight);
+           // predictions(weight, Long.parseLong(weightTargetTextView.getText().toString()), recommendedWeight);
         }
     }
-
-
-
-    private String getCurrentDateAsString() {
+  private String getCurrentDateAsString() {
         // Get the current date
         Calendar calendar = Calendar.getInstance();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         return dateFormat.format(calendar.getTime());
     }
-
-
     private void fetchPetData(Pet selectedPet) {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
@@ -313,16 +412,10 @@ public class PetWeightData extends AppCompatActivity {
                 public void onDataChange(@NonNull DataSnapshot snapshot) {
                     if (snapshot.exists()) {
                         DataSnapshot healthSnapshot = snapshot.child("health");
-
-                        // Retrieve current weight as Long
-                        Long currentWeightLong = healthSnapshot.child("weight").getValue(Long.class);
-
-                        // Retrieve ideal weight as Long
-                        Long idealWeightLong = healthSnapshot.child("idealWeight").getValue(Long.class);
+ Long currentWeightLong = healthSnapshot.child("weight").getValue(Long.class);
+ Long idealWeightLong = healthSnapshot.child("idealWeight").getValue(Long.class);
                         String idealWeight = String.valueOf(idealWeightLong);
-
-                        // Retrieve other weight-related fields as Long if necessary
-                        long firstBreedWeightRange = healthSnapshot.child("breedWeightRange").child("first").getValue(Long.class);
+ long firstBreedWeightRange = healthSnapshot.child("breedWeightRange").child("first").getValue(Long.class);
                         long secondBreedWeightRange = healthSnapshot.child("breedWeightRange").child("second").getValue(Long.class);
 
                         // Retrieve health target based on pet type
@@ -335,16 +428,13 @@ public class PetWeightData extends AppCompatActivity {
                             // Default value or handle other types
                             weightTarget = 0;
                         }
-
-                        // Convert weight-related fields to String
                         String weightTargetStr = String.valueOf(weightTarget);
                         String weightRange = firstBreedWeightRange + " - " + secondBreedWeightRange;
                         String weightStatus = healthSnapshot.child("weightStatus").getValue(String.class);
 
-                        // Display pet health data
                         displayPetWeightData(currentWeightLong, idealWeight, weightRange, weightTargetStr, weightStatus);
+                        predictions(currentWeightLong, Long.parseLong(weightTargetStr), firstBreedWeightRange, secondBreedWeightRange, averageWeightChangePerWeek);
 
-                        // Fetch and populate weight data
                         DataSnapshot weightDataSnapshot = snapshot.child("health").child("weightData");
                         for (DataSnapshot weightSnapshot : weightDataSnapshot.getChildren()) {
                             String entryDate = weightSnapshot.child("entryDate").getValue(String.class);
@@ -353,12 +443,14 @@ public class PetWeightData extends AppCompatActivity {
                             weightLogsAdapter.add(log);
                         }
                         weightLogsAdapter.notifyDataSetChanged(); // Notify adapter data set changed
+                        // Display weight trends
+                        displayWeightTrends(currentWeightLong, weightTargetStr);
 
 
                         // Load weight chart
                         loadWeightChart(weightDataList, firstBreedWeightRange, secondBreedWeightRange, Long.parseLong(weightTargetStr), currentWeightLong, entryDates);
-
                     } else {
+
                         Toast.makeText(PetWeightData.this, "Pet not found!", Toast.LENGTH_SHORT).show();
                         finish();
                     }
@@ -371,10 +463,7 @@ public class PetWeightData extends AppCompatActivity {
             });
         }
     }
-
-
-
-    private void updatePetWeightStatus(long currentWeight, long weightRangeStart, long weightRangeEnd) {
+private void updatePetWeightStatus(long currentWeight, long weightRangeStart, long weightRangeEnd) {
         String weightStatus;
         if (currentWeight < weightRangeStart) {
             weightStatus = "Underweight";
@@ -395,9 +484,6 @@ public class PetWeightData extends AppCompatActivity {
             weightStatusRef.setValue(weightStatus);
         }
     }
-
-
-
     private void displayPetWeightData(Long currentWeightLong, String idealWeight, String weightRange, String weightTarget, String weightStatus) {
         // Update the UI
         currentWeightTextView.setText("Current Weight: " + currentWeightLong);
@@ -405,16 +491,11 @@ public class PetWeightData extends AppCompatActivity {
         idealWeightTextView.setText("Ideal Weight: " + idealWeight);
         weightRangeTextView.setText("Weight Range: " + weightRange);
         weightTargetTextView.setText("Weight Target: " + weightTarget);
-
-        endWeightTextView.setText("Target Weight: " + weightTarget);
-
-        // Convert weight range string to long values
-        String[] weightRangeValues = weightRange.split(" - ");
+ endWeightTextView.setText("Target Weight: " + weightTarget);
+  String[] weightRangeValues = weightRange.split(" - ");
         long weightRangeStart = Long.parseLong(weightRangeValues[0]);
         long weightRangeEnd = Long.parseLong(weightRangeValues[1]);
-
-        // Update the current weight in Firebase
-        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+ FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null && selectedPet != null) {
             DatabaseReference currentWeightRef = FirebaseDatabase.getInstance().getReference()
                     .child("users").child(currentUser.getUid())
@@ -423,14 +504,8 @@ public class PetWeightData extends AppCompatActivity {
             currentWeightRef.setValue(currentWeightLong); // Update current weight in Firebase
             updatePetWeightStatus(currentWeightLong, weightRangeStart, weightRangeEnd);
         }
-
-        // Determine start weight
-        // Determine start weight
-        double startWeight;
-
-// overweight: start weight is above target
-
-         if (!weightDataList.isEmpty() && currentWeightLong > weightDataList.get(0) && currentWeightLong >= Long.parseLong(weightTarget)) {
+  double startWeight;
+  if (!weightDataList.isEmpty() && currentWeightLong > weightDataList.get(0) && currentWeightLong >= Long.parseLong(weightTarget)) {
             // current weight is above start and target weight
              startWeight = Collections.max(weightDataList);
              startWeightTextView.setText("Highest Weight: " + startWeight);
@@ -444,22 +519,11 @@ public class PetWeightData extends AppCompatActivity {
             startWeightTextView.setText("Current Weight: " + currentWeightLong); // Set start weight as current weight if it's less than target weight
         }
 
-
-
-        // Set start weight text
-       // startWeightTextView.setText("Start Weight: " + startWeight);
-
-        // Calculate progress value
         double progress = ((currentWeightLong - startWeight) / (Double.parseDouble(weightTarget) - startWeight)) * 100;
 
-        // Set progress to the ProgressBar
         ProgressBar weightProgressBar = findViewById(R.id.weightProgressBar);
         weightProgressBar.setProgress((int) progress);
     }
-
-
-
-
 
     private void loadWeightChart(ArrayList<Double> weightDataList, double weightRangeStart, double weightRangeEnd, double weightTarget, long currentWeight, ArrayList<String> entryDates) {
         chartWebView.setWebViewClient(new WebViewClient());
@@ -547,5 +611,42 @@ public class PetWeightData extends AppCompatActivity {
         if (userWeightsReference != null && weightEventListener != null) {
             userWeightsReference.removeEventListener(weightEventListener);
         }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.mode_menu, menu);
+        return true;
+    }
+
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int itemId = item.getItemId();
+
+        if (itemId == R.id.menuReturnToModeSelection) {
+
+            Intent returnToModeIntent = new Intent(PetWeightData.this, SelectMode.class);
+            startActivity(returnToModeIntent);
+            finish();
+            return true;
+        } else if (itemId == R.id.menuSignOut) {
+
+            mAuth.signOut();
+            Intent signOutIntent = new Intent(PetWeightData.this, Login.class);
+            startActivity(signOutIntent);
+            finish();
+            return true;
+        } else {
+            return super.onOptionsItemSelected(item);
+        }
+    }
+    private void navigateToHealthActivity() {
+        Intent intent = new Intent(this, HealthData.class);
+        intent.putExtra("selectedPet", selectedPet);
+        startActivity(intent);
+    }
+    private void navigateToViewPetLocation() {
+        Intent intent = new Intent(this, ViewPetLocation.class);
+        intent.putExtra("selectedPet", selectedPet); // Assuming selectedPet is the object representing the selected pet
+        startActivity(intent);
     }
 }

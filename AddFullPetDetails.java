@@ -1,12 +1,16 @@
 package com.example.testsample;
 
+import android.app.DatePickerDialog;
 import android.content.Intent;
+import android.icu.util.Calendar;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -15,13 +19,16 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.bumptech.glide.Glide;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
@@ -39,9 +46,11 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class AddFullPetDetails extends AppCompatActivity {
@@ -59,7 +68,7 @@ public class AddFullPetDetails extends AppCompatActivity {
 
     private Uri imageUri;
     private String currentUserId;
-
+    private FirebaseAuth mAuth;
 
 
     private Spinner spinnerPetType;
@@ -86,11 +95,15 @@ public class AddFullPetDetails extends AppCompatActivity {
         spinnerBreed = findViewById(R.id.spinnerBreed);
         populatePetTypeSpinner();
 
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
 
         imageView = findViewById(R.id.imageView);
         progressBar = findViewById(R.id.progressBar);
 
-        Button chooseImageButton = findViewById(R.id.chooseImageButton);
+
+        TextView chooseImageTextView = findViewById(R.id.chooseImageTextView);
+        chooseImageTextView.setOnClickListener(v -> openFileChooser());
         Button savePetDetailsButton = findViewById(R.id.savePetDetailsButton);
 
         storage = FirebaseStorage.getInstance();
@@ -100,13 +113,14 @@ public class AddFullPetDetails extends AppCompatActivity {
 
         currentUserId = mAuth.getUid();
 
-        chooseImageButton.setOnClickListener(v -> openFileChooser());
         savePetDetailsButton.setOnClickListener(v -> savePetDetails());
 
         toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-        getSupportActionBar().setDisplayShowHomeEnabled(true);
+       // getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        //getSupportActionBar().setDisplayShowHomeEnabled(true);
+        petDobEditText.setOnClickListener(v -> showDatePickerDialog());
+
 
         spinnerPetType.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
@@ -136,6 +150,51 @@ public class AddFullPetDetails extends AppCompatActivity {
             }
         });
 
+        BottomNavigationView bottomNavigationView = findViewById(R.id.mainBottomNavigation);
+
+        bottomNavigationView.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
+            @Override
+            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+                Log.d("BottomNavigation", "Item selected: " + item.getTitle());
+                if (item.getItemId() == R.id.action_add_pet) {
+                    getSupportActionBar().setTitle("Add Pet");
+                    startActivity(new Intent(AddFullPetDetails.this, AddFullPetDetails.class));
+                    return true;
+                } else if (item.getItemId() == R.id.action_user_profile) {
+                    getSupportActionBar().setTitle("User Profile");
+                    startActivity(new Intent(AddFullPetDetails.this,UserProfile.class));
+                    return true;
+                } else if (item.getItemId() == R.id.navigate_home) {
+                    getSupportActionBar().setTitle("Home");
+                    startActivity(new Intent(AddFullPetDetails.this, StartUpPage.class));
+                    return true;
+                }
+                else if (item.getItemId() == R.id.navigate_reminder) {
+                    getSupportActionBar().setTitle("Reminders");
+                    startActivity(new Intent(AddFullPetDetails.this, Reminders.class));
+                    return true;
+                }
+                return false;
+            }
+        });
+
+    }
+    private void showDatePickerDialog() {
+        // Get current date
+        final Calendar calendar = Calendar.getInstance();
+        int year = calendar.get(Calendar.YEAR);
+        int month = calendar.get(Calendar.MONTH);
+        int day = calendar.get(Calendar.DAY_OF_MONTH);
+
+        // Create a DatePickerDialog and show it
+        DatePickerDialog datePickerDialog = new DatePickerDialog(this,
+                (view, selectedYear, selectedMonth, selectedDay) -> {
+                    // Set the selected date to the EditText
+                    calendar.set(selectedYear, selectedMonth, selectedDay);
+                    SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+                    petDobEditText.setText(dateFormat.format(calendar.getTime()));
+                }, year, month, day);
+        datePickerDialog.show();
     }
     private void showBreedInputDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -398,6 +457,32 @@ public class AddFullPetDetails extends AppCompatActivity {
     public boolean onSupportNavigateUp() {
         onBackPressed();
         return true;
+    }
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.mode_menu, menu);
+        return true;
+    }
+
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int itemId = item.getItemId();
+
+        if (itemId == R.id.menuReturnToModeSelection) {
+
+            Intent returnToModeIntent = new Intent(AddFullPetDetails.this, SelectMode.class);
+            startActivity(returnToModeIntent);
+            finish();
+            return true;
+        } else if (itemId == R.id.menuSignOut) {
+
+            mAuth.signOut();
+            Intent signOutIntent = new Intent(AddFullPetDetails.this, Login.class);
+            startActivity(signOutIntent);
+            finish();
+            return true;
+        } else {
+            return super.onOptionsItemSelected(item);
+        }
     }
 }
 

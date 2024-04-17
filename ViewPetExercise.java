@@ -3,6 +3,8 @@ package com.example.testsample;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -16,7 +18,9 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.cardview.widget.CardView;
 
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
@@ -42,9 +46,9 @@ public class ViewPetExercise extends AppCompatActivity {
     private TextView tvDailyExercise;
     private TextView tvDateTime;
 
-    private Button btnViewWeeklyExercise, btnViewPastExercise;
-    private TextView weekStepCountTextView, weekDistanceTextView;
-    private TextView averageWeekStepCountTextView, averageWeekDistanceTextView;
+    private Button btnViewWeeklyExercise;
+    private TextView weekStepCountTextView, weekDistanceTextView, trend1,trend2,trend3;
+    private TextView averageWeekStepCountTextView, averageWeekDistanceTextView, viewPastExercise;
     private WebView chartWebView, chartWebView2;
 
 
@@ -53,36 +57,23 @@ public class ViewPetExercise extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_view_pet_exercise);
-/*
-        Intent intent = getIntent();
-        if (intent.hasExtra("selectedPetName")) {
-            selectedPetName = intent.getStringExtra("selectedPetName");
-            tvSelectedPet = findViewById(R.id.tv_selectedPet);
-            tvSelectedPet.setText("Selected Pet: " + selectedPetName);
-            tvSelectedPet.setVisibility(View.VISIBLE);
-        }*/
-
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         getSupportActionBar().setTitle("Activity Summary");
-
-
         chartWebView = findViewById(R.id.chartWebView);
         chartWebView2 = findViewById(R.id.chartWebView2);
 
         Intent intent = getIntent();
         selectedPetName = intent.getStringExtra("selectedPetName");
         selectedPet = (Pet) intent.getSerializableExtra("selectedPet");
-
-        // Display the selected pet information based on which one is available
         if (selectedPetName != null) {
             selectedPetName = intent.getStringExtra("selectedPetName");
             tvSelectedPet = findViewById(R.id.tv_selectedPet);
-            tvSelectedPet.setText("Selected Pet: " + selectedPetName);
+            tvSelectedPet.setText("Pet: " + selectedPetName);
             tvSelectedPet.setVisibility(View.VISIBLE);
         } else if (selectedPet != null) {
             tvSelectedPet = findViewById(R.id.tv_selectedPet);
-            tvSelectedPet.setText("Selected Pet: " + selectedPet.getName());
+            tvSelectedPet.setText("Pet: " + selectedPet.getName());
             tvSelectedPet.setVisibility(View.VISIBLE);
         }
 
@@ -92,26 +83,32 @@ public class ViewPetExercise extends AppCompatActivity {
             String userId = currentUser.getUid();
             usersRef = FirebaseDatabase.getInstance().getReference("users").child(userId);
         }
-
         tvCurrentExercise = findViewById(R.id.tv_currentExercise);
-        // tvDailyExercise = findViewById(R.id.tv_dailyExercise);
+         trend1 = findViewById(R.id.trend1);
+        trend2 = findViewById(R.id.trend2);
+        trend3 = findViewById(R.id.trend3);
         tvDateTime = findViewById(R.id.tvDateTime);
         weekStepCountTextView = findViewById(R.id.weekStepCountTextView);
         averageWeekStepCountTextView = findViewById(R.id.averageWeekStepCountTextView);
-
         weekDistanceTextView = findViewById(R.id.weekDistanceTextView);
         averageWeekDistanceTextView = findViewById(R.id.averageWeekDistanceTextView);
         displayCurrentDateTime();
-
 
         fetchAndDisplayExerciseData();
         fetchAndDisplayWeekExerciseData();
         fetchAndDisplayWeeklyExerciseData();
         // fetchAndDisplayDailyTotal();
 
+        if (selectedPet.getType().equals("Dog")) {
+            displayDogTrends();
+            findViewById(R.id.weightInfoCardView).setVisibility(View.VISIBLE);
+        } else {
+            displayTrends();
+            findViewById(R.id.weightInfoCardView).setVisibility(View.GONE);
 
-        btnViewPastExercise = findViewById(R.id.btnViewPastExercise);
-        btnViewPastExercise.setOnClickListener(new View.OnClickListener() {
+        }
+       CardView buttonCardView = findViewById(R.id.buttonCardView);
+        buttonCardView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(ViewPetExercise.this, PastExercise.class);
@@ -123,9 +120,6 @@ public class ViewPetExercise extends AppCompatActivity {
                 startActivity(intent);
             }
         });
-
-
-
 
 
         if (currentUser != null) {
@@ -167,6 +161,8 @@ public class ViewPetExercise extends AppCompatActivity {
                                         // Set the current step count and activity goal
                                         TextView stepCountTextView = findViewById(R.id.stepTargetTextView);
                                         stepCountTextView.setText(stepCount + " / " + activityGoal);
+
+
                                     } else {
                                         Log.e("DisplayPetProfile", "No activity goal data available");
                                     }
@@ -187,7 +183,238 @@ public class ViewPetExercise extends AppCompatActivity {
                     Log.e("DisplayPetProfile", "Firebase exercise data error: " + error.getMessage());
                 }
             });
-        }}
+        }
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation_pet);
+        bottomNavigationView.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
+            @Override
+            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+                if (item.getItemId() == R.id.navigation_home) {
+                    startActivity(new Intent(ViewPetExercise.this, StartUpPage.class));
+                    return true;
+                } else if (item.getItemId() ==  R.id.navigation_pet_tracker) {
+                    navigateToViewPetLocation();
+                    return true;
+                } else if (item.getItemId() == R.id.navigation_pet_health) {
+                    navigateToHealthActivity();
+                    return true;}
+                else if (item.getItemId() == R.id.navigation_pet_profile) {
+                    startActivity(new Intent(ViewPetExercise.this, DisplayPetProfile.class));
+                    finish();
+                    return true;
+                }
+                return false;
+            }
+        });
+    }
+    private void displayTrends() {
+        // Compare today's data with yesterday's
+        compareWithYesterday();
+
+    }
+    private void displayDogTrends() {
+        // Compare today's data with yesterday's
+        compareWithYesterday();
+        compareWithActivityGoal();
+        compareWithWeeklyAverage();
+    }
+
+    private void compareWithYesterday() {
+        DatabaseReference dailyTotalsRef = usersRef.child("pets").child(selectedPet.getName()).child("daily_totals");
+
+        // Get yesterday's date in YYYYMMDD format
+        Calendar yesterdayCal = Calendar.getInstance();
+        yesterdayCal.add(Calendar.DATE, -1);
+        String yesterdayDate = new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(yesterdayCal.getTime());
+
+        // Get today's date in YYYYMMDD format
+        String todayDate = new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Calendar.getInstance().getTime());
+
+        // Declare yesterdayStepCount as effectively final
+        final int[] yesterdayStepCount = {0};
+
+        // Retrieve yesterday's data
+        dailyTotalsRef.child(yesterdayDate).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot yesterdayDataSnapshot) {
+                // Retrieve yesterday's step count
+                if (yesterdayDataSnapshot.exists()) {
+                    yesterdayStepCount[0] = yesterdayDataSnapshot.child("stepCount").getValue(Integer.class);
+                }
+
+                // Retrieve today's step count
+                dailyTotalsRef.child(todayDate).addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot todayDataSnapshot) {
+                        int todayStepCount = 0;
+                        if (todayDataSnapshot.exists()) {
+                            todayStepCount = todayDataSnapshot.child("stepCount").getValue(Integer.class);
+                        }
+
+                        // Calculate the difference in step count
+                        int stepDifference = todayStepCount - yesterdayStepCount[0];
+                        String message;
+
+                        // Compare today's step count with yesterday's
+                        if (stepDifference > 0) {
+                            message = "Today's step count is " + stepDifference + " steps higher than yesterday's.";
+                        } else if (stepDifference < 0) {
+                            message = "Today's step count is " + Math.abs(stepDifference) + " steps less than yesterday's.";
+                        } else {
+                            message = "Today's step count is equal to yesterday's";
+                        }
+
+                        trend1.setText(message);
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError todayDatabaseError) {
+                        // Handle errors retrieving today's data
+                    }
+                });
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError yesterdayDatabaseError) {
+                // Handle errors retrieving yesterday's data
+            }
+        });
+    }
+    private void compareWithWeeklyAverage() {
+        DatabaseReference healthRef = usersRef.child("pets").child(selectedPet.getName()).child("health");
+        healthRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    final int[] activityGoal = {0}; // Declare activityGoal as effectively final
+
+                    // Retrieve the activity goal from Firebase
+                    if (dataSnapshot.hasChild("dogHealthTarget")) {
+                        activityGoal[0] = dataSnapshot.child("dogHealthTarget").child("activityGoal").getValue(Integer.class);
+                    } else if (dataSnapshot.hasChild("catHealthTarget")) {
+                        activityGoal[0] = dataSnapshot.child("catHealthTarget").child("activityDurationGoal").getValue(Integer.class);
+                    }
+
+                    // Calculate the weekly average from daily totals
+                    DatabaseReference dailyTotalsRef = usersRef.child("pets").child(selectedPet.getName()).child("daily_totals");
+                    dailyTotalsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                            if (dataSnapshot.exists()) {
+                                double totalSteps = 0;
+                                int totalDays = 0;
+
+                                // Loop through the daily totals for the past week
+                                Calendar calendar = Calendar.getInstance();
+                                for (int i = 0; i < 7; i++) {
+                                    String date = new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(calendar.getTime());
+                                    DataSnapshot daySnapshot = dataSnapshot.child(date);
+
+                                    if (daySnapshot.exists()) {
+                                        int stepCount = daySnapshot.child("stepCount").getValue(Integer.class);
+                                        totalSteps += stepCount;
+                                        totalDays++;
+                                    }
+
+                                    // Move to the previous day
+                                    calendar.add(Calendar.DAY_OF_YEAR, -1);
+                                }
+
+                                // Calculate the weekly average
+                                double weeklyAverage = totalDays > 0 ? totalSteps / totalDays : 0;
+
+                                // Compare the weekly average with the activity goal
+                                if (weeklyAverage > activityGoal[0]) {
+                                    trend3.setText("Weekly average step count is above the recommended goal.");
+                                } else if (weeklyAverage < activityGoal[0]) {
+                                    trend3.setText("Weekly average step count is below the recommended goal.");
+                                } else {
+                                    trend3.setText("Weekly average step count meets the recommended goal.");
+                                }
+                            }
+                        }
+
+                        @Override
+                        public void onCancelled(@NonNull DatabaseError databaseError) {
+                            // Handle errors, if any
+                        }
+                    });
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+                // Handle errors, if any
+            }
+        });
+    }
+
+    private void compareWithActivityGoal() {
+        DatabaseReference healthRef = usersRef.child("pets").child(selectedPet.getName()).child("health");
+        healthRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    final int[] activityGoal = {0}; // Declare activityGoal as effectively final
+
+                    // Retrieve the activity goal from Firebase
+                    if (dataSnapshot.hasChild("dogHealthTarget")) {
+                        activityGoal[0] = dataSnapshot.child("dogHealthTarget").child("activityGoal").getValue(Integer.class);
+                    } else if (dataSnapshot.hasChild("catHealthTarget")) {
+                        activityGoal[0] = dataSnapshot.child("catHealthTarget").child("activityDurationGoal").getValue(Integer.class);
+                    }
+
+                    // Get today's step count
+                    DatabaseReference dailyTotalsRef = usersRef.child("pets").child(selectedPet.getName()).child("daily_totals");
+                    String todayDate = new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Calendar.getInstance().getTime());
+                    dailyTotalsRef.child(todayDate).addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                            if (dataSnapshot.exists()) {
+                                int todayStepCount = dataSnapshot.child("stepCount").getValue(Integer.class);
+
+                                // Calculate the difference between today's step count and the activity goal
+                                int stepDifference = todayStepCount - activityGoal[0];
+                                String message;
+
+                                // Compare today's step count with the activity goal
+                                if (stepDifference > 0) {
+                                    message = "Congratulations! Your pet has exceeded the activity goal for today by " + stepDifference + " steps.";
+                                } else if (stepDifference < 0) {
+                                    message = "Your pet's step count is below the recommended goal for today by " + Math.abs(stepDifference) + " steps.";
+                                } else {
+                                    message = "Your pet has met the activity goal for today. Keep up the good work!";
+                                }
+
+                                trend2.setText(message);
+                            }
+                        }
+
+                        @Override
+                        public void onCancelled(@NonNull DatabaseError databaseError) {
+                            // Handle errors, if any
+                        }
+                    });
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+                // Handle errors, if any
+            }
+        });
+    }
+
+
+    private void navigateToHealthActivity() {
+        Intent intent = new Intent(this, HealthData.class);
+        intent.putExtra("selectedPet", selectedPet);
+        startActivity(intent);
+    }
+    private void navigateToViewPetLocation() {
+        Intent intent = new Intent(this, ViewPetLocation.class);
+        intent.putExtra("selectedPet", selectedPet); // Assuming selectedPet is the object representing the selected pet
+        startActivity(intent);
+    }
 
             private void fetchAndDisplayWeekExerciseData() {
         DatabaseReference petRef;
@@ -252,6 +479,7 @@ public class ViewPetExercise extends AppCompatActivity {
                         int activityGoal;
 
 
+
                         if (healthSnapshot.hasChild("dogHealthTarget")) {
                             activityGoal = healthSnapshot.child("dogHealthTarget").child("activityGoal").getValue(Integer.class);
 
@@ -280,7 +508,6 @@ public class ViewPetExercise extends AppCompatActivity {
                                         exerciseInfo += " steps";
                                     }
                                     tvCurrentExercise.setText(exerciseInfo);
-
                                     if ("Dog".equals(snapshot.child("type").getValue(String.class))) {
                                         // Add the recommended step count as blue line on the step count chart
                                         ArrayList<Integer> stepCounts = new ArrayList<>();
@@ -367,6 +594,8 @@ public class ViewPetExercise extends AppCompatActivity {
                                         exerciseInfo += " steps";
                                     }
                                     tvCurrentExercise.setText(exerciseInfo);
+
+
                                     if ("Dog".equals(snapshot.child("type").getValue(String.class))) {
                                         // Add the recommended step count as blue line on the step count chart
                                         ArrayList<Integer> stepCounts = new ArrayList<>();
@@ -379,7 +608,14 @@ public class ViewPetExercise extends AppCompatActivity {
                                         loadStepChart(stepCounts, activityGoal);
                                     }
                                     if (stepCount >= activityGoal) {
-                                        Toast.makeText(ViewPetExercise.this, "Congratulations! Your pet has reached its activity goal.", Toast.LENGTH_SHORT).show();
+                                        if ("Dog".equals(selectedPet.getType())) {
+                                              Toast.makeText(ViewPetExercise.this, "Congratulations! Your pet has reached its activity goal.", Toast.LENGTH_SHORT).show();
+
+                                        }
+                                        else{
+                                            Toast.makeText(ViewPetExercise.this, "Check if pet has received adequate exercise.", Toast.LENGTH_SHORT).show();
+
+                                        }
                                     } else {
                                         Calendar calendar = Calendar.getInstance();
                                         int currentHour = calendar.get(Calendar.HOUR_OF_DAY);
@@ -414,6 +650,7 @@ public class ViewPetExercise extends AppCompatActivity {
             });
         }
     }
+
 
 
     private void displayCurrentDateTime() {
@@ -641,5 +878,32 @@ public class ViewPetExercise extends AppCompatActivity {
         html.append("</body></html>");
 
         chartWebView2.loadDataWithBaseURL(null, html.toString(), "text/html", "UTF-8", null);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.mode_menu, menu);
+        return true;
+    }
+
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int itemId = item.getItemId();
+
+        if (itemId == R.id.menuReturnToModeSelection) {
+
+            Intent returnToModeIntent = new Intent(ViewPetExercise.this, SelectMode.class);
+            startActivity(returnToModeIntent);
+            finish();
+            return true;
+        } else if (itemId == R.id.menuSignOut) {
+
+            mAuth.signOut();
+            Intent signOutIntent = new Intent(ViewPetExercise .this, Login.class);
+            startActivity(signOutIntent);
+            finish();
+            return true;
+        } else {
+            return super.onOptionsItemSelected(item);
+        }
     }
 }
