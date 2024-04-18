@@ -79,23 +79,17 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
     private DatabaseReference geofenceRef;
     private NotificationManager notificationManager;
     private static final String CHANNEL_ID = "geofence_channel";
-
-
     private SensorManager sensorManager;
     private Sensor accelerometer;
-
-
     private int stepCount = 0;
     private double distance = 0.0;
     private double speed = 0.0;
     private long lastUpdateTime = 0;
-
     private TextView distanceTextView;
     private TextView speedTextView;
     private TextView stepCountTextView;
     private DatabaseReference dailyTotalRef;
     private TextView heartRateTextView;
-
     private Switch trackingSwitch;
     private boolean isTracking = false;
 
@@ -118,7 +112,7 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
         btn_showWaypoint = findViewById(R.id.btn_showWaypoint);
         btn_showMap = findViewById(R.id.btn_showMap);
         tv_wayPointCounts = findViewById(R.id.tv_breadcrumbs);
-
+       // RelativeLayout overlayLayout = findViewById(R.id.overlay_layout);
         locationUpdateHandler = new Handler();
         notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         createNotificationChannel();
@@ -137,16 +131,11 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
             String userId = currentUser.getUid();
             usersRef = FirebaseDatabase.getInstance().getReference("users").child(userId);
         }
-
         geofenceRef = usersRef.child("pets").child(selectedPetName).child("geofence");
-
-
         locationRequest = new LocationRequest();
         locationRequest.setInterval(30000);
         locationRequest.setFastestInterval(5000);
         locationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
-
-
         locationCallBack = new LocationCallback() {
             @Override
             public void onLocationResult(@NonNull LocationResult locationResult) {
@@ -185,8 +174,6 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
                 if (currentLocation != null) {
 
                     Intent intent = new Intent(Tracking.this, MapsActivity.class);
-
-
                     intent.putExtra("latitude", currentLocation.getLatitude());
                     intent.putExtra("longitude", currentLocation.getLongitude());
                     intent.putExtra("accuracy", currentLocation.getAccuracy());
@@ -197,8 +184,6 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
                 }
             }
         });
-
-
         sw_gps.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -211,10 +196,7 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
                 }
             }
         });
-
-
         sw_locationsupdates.setChecked(false);
-
         sw_locationsupdates.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -235,23 +217,12 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
 
             stopLocationUpdates();
         }
-        //exercise
-
-
-
-
-
         dailyTotalRef = usersRef.child("pets").child(selectedPetName).child("daily_totals");
-
         distanceTextView = findViewById(R.id.distanceTextView);
         speedTextView = findViewById(R.id.speedTextView);
         stepCountTextView = findViewById(R.id.stepCountTextView);
-
-
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-
-
         trackingSwitch = findViewById(R.id.trackingSwitch);
         trackingSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             isTracking = isChecked;
@@ -261,12 +232,12 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
                 stopTracking();
             }
         });
-
         isTracking = trackingSwitch.isChecked();
+
         updateTrackingUI();
         fetchAndDisplayExerciseData();
-    }
 
+    }
 
 
     private void createNotificationChannel() {
@@ -280,6 +251,7 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
             notificationManager.createNotificationChannel(channel);
         }
     }
+
     private void sendNotification(String message) {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.notification_icon)
@@ -289,6 +261,7 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
 
         notificationManager.notify(1, builder.build());
     }
+
     private void checkGeofence(Location currentLocation) {
         geofenceRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -330,7 +303,6 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
             }
         });
     }
-
 
 
     /* private void startLocationUpdates() {
@@ -379,10 +351,10 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
                 return;
             }
             fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallBack, null);
-           tv_updates.setText("Location is being tracked");
-           isLocationUpdatesStarted = true;
-       }
-   }
+            tv_updates.setText("Location is being tracked");
+            isLocationUpdatesStarted = true;
+        }
+    }
 
     private void stopLocationUpdates() {
         if (isLocationUpdatesStarted) {
@@ -391,6 +363,7 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
             isLocationUpdatesStarted = false;
         }
     }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -471,12 +444,13 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
         }
 
         // add new loc
-        MyApplication myApp =(MyApplication)getApplicationContext();
+        MyApplication myApp = (MyApplication) getApplicationContext();
         savedLocations = myApp.getMyLocations();
         // show the no. of waypoints
         tv_wayPointCounts.setText(Integer.toString(savedLocations.size()));
 
     }
+
     private void updateFirebaseLocation(Location location) {
         if (selectedPetName != null && usersRef != null) {
             PetLocation petLocation = new PetLocation(
@@ -495,6 +469,7 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
             LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
         }
     }
+
     private String getAddressFromLocation(Location location) {
         Geocoder geocoder = new Geocoder(Tracking.this, Locale.getDefault());
         try {
@@ -511,9 +486,7 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
     }
 
 
-
     // exercise
-
 
 
     private void startTracking() {
@@ -543,7 +516,6 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
     }
 
 
-
     @Override
     protected void onResume() {
         super.onResume();
@@ -561,12 +533,9 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
     }
 
 
-
-
-
     @Override
     public void onSensorChanged(SensorEvent event) {
-        if (isTracking && event.sensor.getType() == Sensor.TYPE_ACCELEROMETER ) {
+        if (isTracking && event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             long currentTime = System.currentTimeMillis();
 
             if (currentTime - lastUpdateTime > 500) { // Update every 500 milliseconds
@@ -592,7 +561,8 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
                     saveExerciseData(selectedPetName, stepCount, distance);
 
 
-                }}
+                }
+            }
 
 
             Calendar currentCalendar = Calendar.getInstance();
@@ -610,13 +580,6 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
             }
         }
     }
-
-
-
-
-
-
-
 
 
     @Override
@@ -702,9 +665,6 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
     private void updateSpeed() {
         runOnUiThread(() -> speedTextView.setText("Speed: " + String.format("%.2f m/s", speed)));
     }
-
-
-
 
 
 }
