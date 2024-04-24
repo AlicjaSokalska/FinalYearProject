@@ -227,7 +227,7 @@ public class HealthData extends AppCompatActivity {
     }
 
     private void showSetTargetsDialog(Pet pet) {
-        Intent intent = new Intent(this, SetTargets.class);
+        Intent intent = new Intent(this, SetTargetsTwo.class);
         intent.putExtra("selectedPet", pet);
         startActivity(intent);
     }
@@ -497,21 +497,28 @@ public class HealthData extends AppCompatActivity {
             // Pet is already at the target weight
             predictionMessage = "Pet has reached target weight. Maintain current calorie intake and activity levels to sustain weight.";
         }
-
-        // Display the prediction message
+// Display the prediction message
         predTextView.setText(predictionMessage);
 
-        // Provide recommendations based on the rate of weight change
-        if (actualRateOfChangePerWeek < -0.10 * currentWeight) {
-            // Weight loss is too rapid, recommend decreasing calorie intake and increasing activity
-            recommendedTextView.setText("Recommendation: Pet should not lose more than 10% of body weight per week, as it is dangerous.");
+        if (actualRateOfChangePerWeek < -0.10 * currentWeight && currentWeight > targetWeight) {
+            // Weight loss is slower than 10% but the pet is still overweight, recommend maintaining current activity levels and adhering to recommended food intake to reach the target weight.
+            recommendedTextView.setText("Recommendation: To reach the target weight, ensure the pet doesn't lose more than 10% of its body weight per week. Maintain current activity levels and stick to recommended food intake.");
+        } else if (actualRateOfChangePerWeek < -0.10 * currentWeight) {
+            // Weight loss is too rapid for an overweight pet, recommend reducing calorie intake and increasing activity levels to reach the target weight safely.
+            recommendedTextView.setText("Recommendation: To reach the target weight safely, ensure the pet doesn't lose more than 10% of its body weight per week. Consider decreasing calorie intake and increasing activity levels.");
         } else if (actualRateOfChangePerWeek > 0) {
-            // Weight gain is too slow, recommend increasing calorie intake and decreasing activity
-            recommendedTextView.setText("Recommendation: Consider increasing calorie intake and decreasing activity levels to promote weight gain.");
+            // Weight gain is too slow, recommend increasing calorie intake and decreasing activity levels to reach the target weight.
+            recommendedTextView.setText("Recommendation: To reach the target weight, consider increasing calorie intake and reducing activity levels to promote weight gain.");
+        } else if (currentWeight > targetWeight) {
+            // Pet is overweight, recommend reducing calorie intake and increasing activity levels to reach the target weight.
+            recommendedTextView.setText("Recommendation: To reach the target weight, consider decreasing calorie intake and increasing activity levels.");
         } else {
             // If there's no change in weight, it's recommended to maintain the current calorie intake and ensure to achieve the daily step target for weight maintenance.
-            recommendedTextView.setText("Recommendation: Maintain current calorie intake and ensure to meet the daily step target to maintain weight.");
+            recommendedTextView.setText("Recommendation: To maintain the current weight, maintain the current calorie intake and ensure to meet the daily step target for weight maintenance.");
         }
+
+
+
     }
 
 

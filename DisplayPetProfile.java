@@ -1,5 +1,6 @@
 package com.example.testsample;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -13,6 +14,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
@@ -36,58 +38,42 @@ public class DisplayPetProfile extends AppCompatActivity {
     private Pet selectedPet; // Updated to store the Pet object
     private Toolbar toolbar;
     private DatabaseReference userPetsReference;
-
+    private FirebaseAuth mAuth;
+    private boolean targetVisited = false;
+    private boolean weightVisited = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_display_pet_profile);
-
         toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-
         TextView currentDateTextView = findViewById(R.id.currentDateTextView);
         TextView currentTimeTextView = findViewById(R.id.currentTimeTextView);
-
-// Get current date and time
         Date currentDate = new Date();
         SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
         SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm a");
-
         String formattedDate = dateFormat.format(currentDate);
         String formattedTime = timeFormat.format(currentDate);
-
         currentDateTextView.setText(formattedDate);
         currentTimeTextView.setText(formattedTime);
-
-
-
-
-        // Get pet details
         selectedPet = (Pet) getIntent().getSerializableExtra("selectedPet");
-
         if (selectedPet == null) {
             Log.e("DisplayPetProfile", "Selected pet is null");
             finish();
             return;
         }
-
-
         TextView petDetailsTextView = findViewById(R.id.petDetailsTextView);
-
         ImageView petImageView = findViewById(R.id.petImageView);
         TextView activityTextView2 = findViewById(R.id.activityTextView2);
         TextView weightTextView2 = findViewById(R.id.weightTextView2);
         RelativeLayout activityLayout = findViewById(R.id.layout2);
         RelativeLayout weightLayout = findViewById(R.id.layout3);
-
         StringBuilder petDetailsBuilder = new StringBuilder();
         petDetailsBuilder.append("Name: ").append(selectedPet.getName()).append("\n");
         petDetailsBuilder.append("Date of Birth: ").append(selectedPet.getDob()).append("\n");
         petDetailsBuilder.append("Breed: ").append(selectedPet.getBreed()).append("\n");
         petDetailsBuilder.append("Description: ").append(selectedPet.getDescription()).append("\n");
-
-
         PetLocation location = selectedPet.getLocation();
         if (location != null) {
             petDetailsBuilder.append("Address: ");
@@ -139,7 +125,7 @@ public class DisplayPetProfile extends AppCompatActivity {
                 }
             });
 
-            weightLayout.setOnClickListener(new View.OnClickListener() {
+           weightLayout.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     DatabaseReference weightRef = FirebaseDatabase.getInstance().getReference()
@@ -156,7 +142,9 @@ public class DisplayPetProfile extends AppCompatActivity {
                             if (snapshot.exists()) {
                                 navigateToPetWeightDataActivity();
                             } else {
+                                showActivityDialog();
                                 Toast.makeText(DisplayPetProfile.this, "Weight data not available", Toast.LENGTH_SHORT).show();
+
                             }
                         }
 
@@ -169,8 +157,6 @@ public class DisplayPetProfile extends AppCompatActivity {
             });
 
         }
-      //  FirebaseAuth mAuth = FirebaseAuth.getInstance();
-      //  FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser != null) {
             String userId = currentUser.getUid();
             DatabaseReference exerciseDataRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("current_exercise_data");
@@ -229,15 +215,13 @@ public class DisplayPetProfile extends AppCompatActivity {
                         activityTextView2.setText("No health data available");
                     }
                 }
-
                 @Override
                 public void onCancelled(@NonNull DatabaseError error) {
                     Log.e("DisplayPetProfile", "Firebase exercise data error: " + error.getMessage());
                 }
             });
 
-// Fetch and display pet weight
-            weightRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            weightRef.addValueEventListener(new ValueEventListener() {
                 @Override
                 public void onDataChange(@NonNull DataSnapshot snapshot) {
                     if (snapshot.exists()) {
@@ -248,6 +232,8 @@ public class DisplayPetProfile extends AppCompatActivity {
                                 long weightValue = petWeight.longValue();
                                 Log.d("PetWeight", "Weight value retrieved: " + weightValue);
                                 weightTextView2.setText("Pet Weight: " + weightValue + " lbs");
+
+
                                 Query startWeightQuery = FirebaseDatabase.getInstance().getReference()
                                         .child("users")
                                         .child(userId)
@@ -323,8 +309,6 @@ public class DisplayPetProfile extends AppCompatActivity {
                 }
             });
         }
-
-
         TextView weightTextView = findViewById(R.id.weightTextView);
         weightTextView.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -340,10 +324,7 @@ public class DisplayPetProfile extends AppCompatActivity {
                 navigateToUpdatePetActivity();
             }
         });
-
-
         selectedPet.loadPetImage(petImageView, this);
-
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation_pet);
         bottomNavigationView.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
             @Override
@@ -351,21 +332,38 @@ public class DisplayPetProfile extends AppCompatActivity {
                 if (item.getItemId() == R.id.navigation_home) {
                     startActivity(new Intent(DisplayPetProfile.this, StartUpPage.class));
                     return true;
-                } else if (item.getItemId() == R.id.navigation_viewLocation) {
+                } else if (item.getItemId() == R.id.navigation_pet_tracker) {
                     navigateToViewPetLocation();
                     return true;
-                } else if (item.getItemId() == R.id.navigation_viewActivity) {
+                } else if (item.getItemId() == R.id.navigation_pet_health) {
                     navigateToHealthActivity();
+                    return true;
+                } else if (item.getItemId() == R.id.navigation_pet_profile) {
+
+                    startActivity(new Intent(DisplayPetProfile.this, DisplayPetProfile.class));
                     return true;
                 } else {
                     return false;
                 }
             }
         });
-
-
         displayReminderDate();
+    }
 
+
+
+    private void showActivityDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("No weight data available");
+        builder.setMessage("Do you want to set weight?");
+        builder.setPositiveButton("Set Weight", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                navigateToRECActivity();
+
+            }
+        });
+        builder.show();
     }
 
     private void displayReminderDate() {
@@ -409,7 +407,7 @@ public class DisplayPetProfile extends AppCompatActivity {
                         // Display the closest reminder date and tag
                         TextView notificationTextView2 = findViewById(R.id.notificationTextView2);
                         if (!closestReminderDate.isEmpty()) {
-                            notificationTextView2.setText(" Date: " + closestReminderDate +"\n Tag: " + closestReminderTag);
+                            notificationTextView2.setText(" Date: " + closestReminderDate + "\n Tag: " + closestReminderTag);
                         } else {
                             notificationTextView2.setText("No reminders available");
                         }
@@ -426,9 +424,7 @@ public class DisplayPetProfile extends AppCompatActivity {
             });
         }
     }
-
-    // Helper method to convert date string to milliseconds
-    private long convertDateStringToMillis(String dateString) {
+ private long convertDateStringToMillis(String dateString) {
         SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
         try {
             Date date = dateFormat.parse(dateString);
@@ -440,48 +436,44 @@ public class DisplayPetProfile extends AppCompatActivity {
         }
         return 0;
     }
-
-
-
     private void navigateToViewPetLocation() {
         Intent intent = new Intent(this, ViewPetLocation.class);
         intent.putExtra("selectedPet", selectedPet); // Assuming selectedPet is the object representing the selected pet
         startActivity(intent);
     }
-
-
-
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.pet_profile_menu, menu);
-
+        getMenuInflater().inflate(R.menu.mode_menu, menu);
         return true;
     }
-    @Override
+
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         int itemId = item.getItemId();
-        if (itemId == R.id.action_set_target) {
-            navigateToTargetActivity();
+
+        if (itemId == R.id.menuReturnToModeSelection) {
+
+            Intent returnToModeIntent = new Intent(DisplayPetProfile.this, SelectMode.class);
+            startActivity(returnToModeIntent);
+            finish();
             return true;
-        } else if (itemId == R.id.action_add_intake) {
-            navigateToIntakeActivity();
+        } else if (itemId == R.id.menuSignOut) {
+
+            mAuth.signOut();
+            Intent signOutIntent = new Intent(DisplayPetProfile.this, Login.class);
+            startActivity(signOutIntent);
+            finish();
             return true;
-
-
-
+        } else {
+            return super.onOptionsItemSelected(item);
         }
-
-
-        return super.onOptionsItemSelected(item);
     }
-
-
-
-
     private void navigateToOtherPetExerciseActivity() {
+        Toast.makeText(DisplayPetProfile.this, "Function Not Available", Toast.LENGTH_SHORT).show();
+
+        /*
         Intent intent = new Intent(this, OtherPetExercise.class);
         intent.putExtra("selectedPet", selectedPet);
-        startActivity(intent);
+        startActivity(intent);*/
     }
     private void navigateToViewPetExerciseActivity() {
         Intent intent = new Intent(this, ViewPetExercise.class);
@@ -493,36 +485,34 @@ public class DisplayPetProfile extends AppCompatActivity {
         intent.putExtra("selectedPet", selectedPet);
         startActivity(intent);
     }
-
-
+    private void navigateToRECActivity() {
+        Intent intent = new Intent(this, PetHealth.class);
+        intent.putExtra("selectedPet", selectedPet);
+        startActivity(intent);
+    }
     private void navigateToUpdatePetActivity() {
         Intent intent = new Intent(this, UpdatePet.class);
         intent.putExtra("selectedPet", selectedPet);
         startActivity(intent);
-    }
-    private void navigateToIntakeActivity() {
-        Intent intent = new Intent(this, AddIntakeActivity.class);
-        intent.putExtra("selectedPet", selectedPet);
-        startActivity(intent);
-    }
-
-    private void navigateToPetWeightDataActivity() {
+    }  private void navigateToPetWeightDataActivity() {
         Intent intent = new Intent(this, PetWeightData.class);
         intent.putExtra("selectedPet", selectedPet);
         startActivity(intent);
-    }
-    private void navigateToOtherPetWeightDataActivity() {
+    } private void navigateToOtherPetWeightDataActivity() {
         Intent intent = new Intent(this, OtherPetWeightData.class);
         intent.putExtra("selectedPet", selectedPet);
         startActivity(intent);
     }
-
-
     private void navigateToHealthActivity() {
-        Intent intent = new Intent(this, HealthData.class);
-        intent.putExtra("selectedPet", selectedPet);
-        startActivity(intent);
+        if (selectedPet.getType().equals("Cat") || selectedPet.getType().equals("Dog")) {
+            Intent intent = new Intent(this, HealthData.class);
+            intent.putExtra("selectedPet", selectedPet);
+            startActivity(intent);
+        } else {
+            Toast.makeText(this, "Function is unavailable for this type of pet", Toast.LENGTH_SHORT).show();
+        }
     }
+
 
 
 }
