@@ -16,6 +16,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.cardview.widget.CardView;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -102,8 +103,8 @@ public class OtherPetExercise extends AppCompatActivity {
         // fetchAndDisplayDailyTotal();
 
 
-        btnViewPastExercise = findViewById(R.id.btnViewPastExercise);
-        btnViewPastExercise.setOnClickListener(new View.OnClickListener() {
+        CardView buttonCardView = findViewById(R.id.buttonCardView);
+        buttonCardView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(OtherPetExercise.this, PastExercise.class);

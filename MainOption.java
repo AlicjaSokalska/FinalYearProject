@@ -1,15 +1,20 @@
 package com.example.testsample;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.Spinner;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
@@ -113,9 +118,7 @@ public class MainOption extends AppCompatActivity {
 
         if (itemId == R.id.menuReturnToModeSelection) {
 
-            Intent returnToModeIntent = new Intent(MainOption.this, SelectMode.class);
-            startActivity(returnToModeIntent);
-            finish();
+            showPinEntryDialog(); // Show PIN entry dialog before returning to mode selection
             return true;
         } else if (itemId == R.id.menuSignOut) {
 
@@ -127,6 +130,56 @@ public class MainOption extends AppCompatActivity {
         } else {
             return super.onOptionsItemSelected(item);
         }
+    }
+    private void showPinEntryDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Enter PIN");
+
+        // Set up the input
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER);
+        builder.setView(input);
+
+        // Set up the buttons
+        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                String pinEntered = input.getText().toString();
+                // Check if the entered PIN matches the user's PIN
+                usersRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        if (snapshot.exists()) {
+                            Integer userPin = snapshot.child("pin").getValue(Integer.class);
+                            if (userPin != null && pinEntered.equals(String.valueOf(userPin))) {
+                                // PIN matches, go back to mode selection screen
+                                Intent returnToModeIntent = new Intent(MainOption.this, SelectMode.class);
+                                startActivity(returnToModeIntent);
+                                finish();
+                            } else {
+                                // Incorrect PIN entered
+                                Toast.makeText(MainOption.this, "Incorrect PIN", Toast.LENGTH_SHORT).show();
+                            }
+                        } else {
+                            Toast.makeText(MainOption.this, "User data not found", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        Toast.makeText(MainOption.this, "Failed to retrieve PIN: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        });
+        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+            }
+        });
+
+        builder.show();
     }
 
 }

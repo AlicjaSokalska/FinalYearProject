@@ -59,6 +59,7 @@ public class Reminders extends AppCompatActivity {
     private ArrayList<Reminder> reminderList;
     private ReminderAdapter reminderAdapter;
     private FirebaseAuth mAuth;
+    private CustomNotificationHelper customNotificationHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,6 +71,7 @@ public class Reminders extends AppCompatActivity {
         reminderList = new ArrayList<>();
         // Instantiate ReminderAdapter in Reminders activity
         reminderAdapter = new ReminderAdapter(this, reminderList, currentUserId);
+       // customNotificationHelper = new CustomNotificationHelper(this); // Instantiate CustomNotificationHelper
 
 
         Toolbar toolbar = findViewById(R.id.toolbar);
@@ -86,8 +88,11 @@ public class Reminders extends AppCompatActivity {
             }
         });
         fetchRemindersAndUpdateUI();
-        scheduleReminderNotifications();
-      //  checkPastReminders();
+        customNotificationHelper = new CustomNotificationHelper(this); // Instantiate CustomNotificationHelper after fetching reminders
+        scheduleReminderNotifications(); // Schedule notifications after fetching reminders
+
+
+        //  checkPastReminders();
 
 
         BottomNavigationView bottomNavigationView = findViewById(R.id.mainBottomNavigation);
@@ -120,15 +125,95 @@ public class Reminders extends AppCompatActivity {
     }
     private void checkPastReminders() {
         for (final Reminder reminder : reminderList) {
-            if (isReminderInPast(reminder) && reminder.isStatus()) {
-                showRemoveDialog("Reminder in the past", "The reminder for " + reminder.getPetName() + " is scheduled for a past date and marked as complete. Do you want to remove it?", reminder);
+            if (reminder.isStatus() && reminder.getRepeatOption() != null && !reminder.getRepeatOption().equalsIgnoreCase("never")) {
+                showRemoveDialog("Reminder is Marked Complete", "The reminder for " + reminder.getPetName() + " is marked as complete and has repeat options. Do you want to remove it?", reminder);
+                // Set marker as unchecked
+                reminder.setStatus(false);
+            } else if (reminder.isStatus() && (reminder.getRepeatOption() == null || reminder.getRepeatOption().equalsIgnoreCase("never"))) {
+                showRemoveDialog("Reminder is Marked Complete", "The reminder for " + reminder.getPetName() + " is marked as complete. Do you want to remove it?", reminder);
+            } else if (isReminderInPast(reminder) && (reminder.getRepeatOption() == null || reminder.getRepeatOption().equalsIgnoreCase("never"))) {
+                showRemoveDialog("Reminder in the past", "The reminder for " + reminder.getPetName() + " is scheduled for a past date and repeat is set to never or is null. Do you want to remove it?", reminder);
             } else if (isReminderInPast(reminder)) {
-                showRemoveDialog("Reminder in the past", "The reminder for " + reminder.getPetName() + " is scheduled for a past date. Do you want to remove it?", reminder);
-            } else if (reminder.isStatus()) {
-                showRemoveDialog("Reminder marked as complete", "The reminder for " + reminder.getPetName() + " is marked as complete. Do you want to remove it?", reminder);
+                updateReminderDate(reminder);
             }
         }
     }
+
+
+
+    private void updateReminderDate(Reminder reminder) {
+        if (reminder.getRepeatOption() != null && !reminder.getRepeatOption().equals("Never")) {
+            Calendar calendar = Calendar.getInstance();
+            SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+            try {
+                Date reminderDate = dateFormat.parse(reminder.getDate());
+
+                // Check if the reminder date is in the past
+                if (reminderDate.before(calendar.getTime())) {
+                    calendar.setTime(reminderDate);
+
+                    // Reset the time to avoid issues with daylight saving time changes
+                    calendar.set(Calendar.HOUR_OF_DAY, 0);
+                    calendar.set(Calendar.MINUTE, 0);
+                    calendar.set(Calendar.SECOND, 0);
+                    calendar.set(Calendar.MILLISECOND, 0);
+
+                    switch (reminder.getRepeatOption()) {
+                        case "Daily":
+                            calendar.add(Calendar.DAY_OF_YEAR, 1);
+                            break;
+                        case "Weekly":
+                            calendar.add(Calendar.WEEK_OF_YEAR, 1);
+                            break;
+                        case "Monthly":
+                            calendar.add(Calendar.MONTH, 1);
+                            break;
+                        case "Yearly":
+                            calendar.add(Calendar.YEAR, 1);
+                            break;
+                        default:
+                            // Handle unrecognized repeat options
+                            break;
+                    }
+
+                    // Update the reminder date
+                    Date updatedDate = calendar.getTime();
+                    String updatedDateString = dateFormat.format(updatedDate);
+                    reminder.setDate(updatedDateString);
+                }
+
+                // Update the reminder in the database
+                DatabaseReference remindersRef = FirebaseDatabase.getInstance().getReference()
+                        .child("users")
+                        .child(currentUserId)
+                        .child("pets")
+                        .child(reminder.getPetName())
+                        .child("reminders")
+                        .child(reminder.getReminderId());
+
+                remindersRef.child("date").setValue(reminder.getDate())
+                        .addOnSuccessListener(new OnSuccessListener<Void>() {
+                            @Override
+                            public void onSuccess(Void aVoid) {
+                                // Handle success
+                            }
+                        })
+                        .addOnFailureListener(new OnFailureListener() {
+                            @Override
+                            public void onFailure(@NonNull Exception e) {
+                                // Handle failure
+                            }
+                        });
+
+            } catch (ParseException e) {
+                e.printStackTrace();
+                // Handle parsing exception
+            }
+        }
+    }
+
+
+
 
     private void showRemoveDialog(String title, String message, final Reminder reminder) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -151,11 +236,6 @@ public class Reminders extends AppCompatActivity {
         builder.show();
 
     }
-
-
-
-
-
 
     private boolean isReminderInPast(Reminder reminder) {
         SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
@@ -201,13 +281,16 @@ public class Reminders extends AppCompatActivity {
     }
 
     private void scheduleReminderNotifications() {
+        Log.d(TAG, "Scheduling reminder notifications...");
+        Log.d(TAG, "Reminder list size: " + reminderList.size());
         for (Reminder reminder : reminderList) {
             if (isReminderDueInSevenDays(reminder)) {
-                scheduleNotification(getNotification("Reminder Due", "Schedule for " + reminder.getPetName() + " is due in 7 days."), 604800000); // 7 days in milliseconds
-                scheduleNotification(getNotification("Reminder Due", "Schedule for " + reminder.getPetName() + " is due in 24 hours."), 86400000); // 24 hours in milliseconds
+                customNotificationHelper.sendNotification("Reminder Due", "Schedule for " + reminder.getPetName() + " is due in 7 days.", null);
+                customNotificationHelper.sendNotification("Reminder Due", "Schedule for " + reminder.getPetName() + " is due in 24 hours.", null);
             }
         }
     }
+
 
     private boolean isReminderDueInSevenDays(Reminder reminder) {
         // Parse reminder date
@@ -219,37 +302,13 @@ public class Reminders extends AppCompatActivity {
             calendar.add(Calendar.DAY_OF_MONTH, 7);
             Date currentDate = calendar.getTime();
             // Check if reminder date is within 7 days
-            return reminderDate.before(currentDate);
+            boolean isDue = reminderDate.before(currentDate);
+            Log.d("ReminderNotifications", "Reminder for " + reminder.getPetName() + " is due in 7 days: " + isDue);
+            return isDue;
         } catch (ParseException e) {
             e.printStackTrace();
             return false;
         }
-    }
-
-    private void scheduleNotification(Notification notification, long delay) {
-        Intent notificationIntent = new Intent(this, NotificationPublisher.class);
-        notificationIntent.putExtra(NotificationPublisher.NOTIFICATION_ID, 1);
-        notificationIntent.putExtra(NotificationPublisher.NOTIFICATION, notification);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-
-        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        if (alarmManager != null) {
-            alarmManager.set(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + delay, pendingIntent);
-        }
-    }
-
-    private Notification getNotification(String title, String content) {
-        Notification.Builder builder = new Notification.Builder(this)
-                .setContentTitle(title)
-                .setContentText(content)
-                .setSmallIcon(R.drawable.ic_notification);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            String channelId = "reminder_channel";
-            NotificationChannel channel = new NotificationChannel(channelId, "Reminder Channel", NotificationManager.IMPORTANCE_DEFAULT);
-            getSystemService(NotificationManager.class).createNotificationChannel(channel);
-            builder.setChannelId(channelId);
-        }
-        return builder.build();
     }
 
 
@@ -316,12 +375,15 @@ public class Reminders extends AppCompatActivity {
             return "Daily";
         } else if (checkedRadioButtonId == R.id.weekly_radio_button) {
             return "Weekly";
+        } else if (checkedRadioButtonId == R.id.monthly_radio_button) { // Add this line for monthly option
+            return "Monthly";
         } else if (checkedRadioButtonId == R.id.yearly_radio_button) {
             return "Yearly";
         } else {
             return "Never"; // Default to "Never" if no option is selected
         }
     }
+
 
     private void fetchPetNames(final Spinner petNameSpinner) {
         DatabaseReference databaseReference = FirebaseDatabase.getInstance().getReference().child("users").child(currentUserId).child("pets");
@@ -423,9 +485,7 @@ public class Reminders extends AppCompatActivity {
                     }
                 });
     }
-
-
-    private void fetchRemindersAndUpdateUI() {
+    public void fetchRemindersAndUpdateUI() {
         DatabaseReference remindersRef = FirebaseDatabase.getInstance().getReference()
                 .child("users")
                 .child(currentUserId)
@@ -449,6 +509,18 @@ public class Reminders extends AppCompatActivity {
 
                 // Notify adapter about data change
                 reminderAdapter.notifyDataSetChanged();
+
+                // Check if the reminder list is populated
+                if (reminderList.size() > 0) {
+                    // If the reminder list is populated, schedule notifications
+                    customNotificationHelper = new CustomNotificationHelper(Reminders.this);
+                    scheduleReminderNotifications();
+                } else {
+                    // Log a message if the reminder list is empty
+                    Log.d(TAG, "Reminder list is empty");
+                }
+
+                // Call method to check past reminders
                 checkPastReminders();
             }
 
@@ -458,6 +530,8 @@ public class Reminders extends AppCompatActivity {
             }
         });
     }
+
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.mode_menu, menu);

@@ -1,5 +1,7 @@
 package com.example.testsample;
 
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
@@ -12,6 +14,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.FirebaseAuth;
@@ -153,100 +156,113 @@ public class PetHealth extends AppCompatActivity {
     }
 
 
-    private String calculateAgeFromDOB(String dateOfBirth) {
-        if (dateOfBirth != null && !dateOfBirth.isEmpty()) {
-
-            Calendar currentDate = Calendar.getInstance();
-
-            SimpleDateFormat dateFormat = new SimpleDateFormat("ddMMyyyy", Locale.getDefault());
-            Date petDOB;
-            try {
-                petDOB = dateFormat.parse(dateOfBirth);
-            } catch (ParseException e) {
-                e.printStackTrace();
-                return "Error";
-            }
-            Calendar petDOBDate = Calendar.getInstance();
-            petDOBDate.setTime(petDOB);
-
-            int years = currentDate.get(Calendar.YEAR) - petDOBDate.get(Calendar.YEAR);
-            int months = currentDate.get(Calendar.MONTH) - petDOBDate.get(Calendar.MONTH);
-            int days = currentDate.get(Calendar.DAY_OF_MONTH) - petDOBDate.get(Calendar.DAY_OF_MONTH);
-
-            if (days < 0) {
-                months--;
-                days += currentDate.getActualMaximum(Calendar.DAY_OF_MONTH);
-            }
-            if (months < 0) {
-                years--;
-                months += 12;
-            }
-            StringBuilder ageStringBuilder = new StringBuilder();
-            if (years > 0) {
-                ageStringBuilder.append(years).append(" year");
-                if (years > 1) {
-                    ageStringBuilder.append("s");
-                }
-                ageStringBuilder.append(" ");
-            }
-            if (months > 0) {
-                ageStringBuilder.append(months).append(" month");
-                if (months > 1) {
-                    ageStringBuilder.append("s");
-                }
-                ageStringBuilder.append(" ");
-            }
-            if (days > 0) {
-                ageStringBuilder.append(days).append(" day");
-                if (days > 1) {
-                    ageStringBuilder.append("s");
-                }
-            }
-
-            return ageStringBuilder.toString();
-        } else {
-            return "Date of Birth is not available";
-        }
-
-    }
-
     private int calculateAgeInMonths(String dateOfBirth) {
         if (dateOfBirth != null && !dateOfBirth.isEmpty()) {
             Calendar currentDate = Calendar.getInstance();
 
-            SimpleDateFormat dateFormat = new SimpleDateFormat("ddMMyyyy", Locale.getDefault());
-            Date petDOB;
-            try {
-                petDOB = dateFormat.parse(dateOfBirth);
-            } catch (ParseException e) {
-                e.printStackTrace();
-                return -1;
+            // Define the date formats to try
+            SimpleDateFormat[] dateFormats = {
+                    new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
+                    new SimpleDateFormat("ddMMyyyy", Locale.getDefault())
+            };
+
+            // Try parsing the date with each format
+            for (SimpleDateFormat dateFormat : dateFormats) {
+                try {
+                    Date petDOB = dateFormat.parse(dateOfBirth);
+                    Calendar petDOBDate = Calendar.getInstance();
+                    petDOBDate.setTime(petDOB);
+
+                    int years = currentDate.get(Calendar.YEAR) - petDOBDate.get(Calendar.YEAR);
+                    int months = currentDate.get(Calendar.MONTH) - petDOBDate.get(Calendar.MONTH);
+                    int days = currentDate.get(Calendar.DAY_OF_MONTH) - petDOBDate.get(Calendar.DAY_OF_MONTH);
+
+                    if (days < 0) {
+                        months--;
+                        days += currentDate.getActualMaximum(Calendar.DAY_OF_MONTH);
+                    }
+                    if (months < 0) {
+                        years--;
+                        months += 12;
+                    }
+
+                    int ageInMonths = years * 12 + months;
+
+                    return ageInMonths;
+                } catch (ParseException e) {
+                    // Ignore parsing errors and try the next format
+                }
             }
-
-            Calendar petDOBDate = Calendar.getInstance();
-            petDOBDate.setTime(petDOB);
-
-            int years = currentDate.get(Calendar.YEAR) - petDOBDate.get(Calendar.YEAR);
-            int months = currentDate.get(Calendar.MONTH) - petDOBDate.get(Calendar.MONTH);
-            int days = currentDate.get(Calendar.DAY_OF_MONTH) - petDOBDate.get(Calendar.DAY_OF_MONTH);
-
-            if (days < 0) {
-                months--;
-                days += currentDate.getActualMaximum(Calendar.DAY_OF_MONTH);
-            }
-            if (months < 0) {
-                years--;
-                months += 12;
-            }
-
-
-            int ageInMonths = years * 12 + months;
-
-            return ageInMonths;
-        } else {
-            return -1;
         }
+
+        // Return -1 if date is invalid or empty
+        return -1;
     }
+
+    private String calculateAgeFromDOB(String dateOfBirth) {
+        if (dateOfBirth != null && !dateOfBirth.isEmpty()) {
+            Calendar currentDate = Calendar.getInstance();
+
+            // Define the date formats to try
+            SimpleDateFormat[] dateFormats = {
+                    new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
+                    new SimpleDateFormat("ddMMyyyy", Locale.getDefault())
+            };
+
+            // Try parsing the date with each format
+            for (SimpleDateFormat dateFormat : dateFormats) {
+                try {
+                    Date petDOB = dateFormat.parse(dateOfBirth);
+                    Calendar petDOBDate = Calendar.getInstance();
+                    petDOBDate.setTime(petDOB);
+
+                    int years = currentDate.get(Calendar.YEAR) - petDOBDate.get(Calendar.YEAR);
+                    int months = currentDate.get(Calendar.MONTH) - petDOBDate.get(Calendar.MONTH);
+                    int days = currentDate.get(Calendar.DAY_OF_MONTH) - petDOBDate.get(Calendar.DAY_OF_MONTH);
+
+                    if (days < 0) {
+                        months--;
+                        days += currentDate.getActualMaximum(Calendar.DAY_OF_MONTH);
+                    }
+                    if (months < 0) {
+                        years--;
+                        months += 12;
+                    }
+
+                    StringBuilder ageStringBuilder = new StringBuilder();
+                    if (years > 0) {
+                        ageStringBuilder.append(years).append(" year");
+                        if (years > 1) {
+                            ageStringBuilder.append("s");
+                        }
+                        ageStringBuilder.append(" ");
+                    }
+                    if (months > 0) {
+                        ageStringBuilder.append(months).append(" month");
+                        if (months > 1) {
+                            ageStringBuilder.append("s");
+                        }
+                        ageStringBuilder.append(" ");
+                    }
+                    if (days > 0) {
+                        ageStringBuilder.append(days).append(" day");
+                        if (days > 1) {
+                            ageStringBuilder.append("s");
+                        }
+                    }
+
+                    return ageStringBuilder.toString();
+                } catch (ParseException e) {
+                    // Ignore parsing errors and try the next format
+                }
+            }
+        }
+
+        // Return "Date of Birth is not available" if date is invalid or empty
+        return "Date of Birth is not available";
+    }
+
+
     private void savePetHealthInformation(int petAgeInMonths, double petWeight) {
         DatabaseReference petHealthReference = FirebaseDatabase.getInstance().getReference()
                 .child("users")
@@ -374,18 +390,101 @@ public class PetHealth extends AppCompatActivity {
 
 
     private void saveButtonClicked() {
-        String weightString = petWeightEditText.getText().toString();
-        if (!TextUtils.isEmpty(weightString)) {
-            petWeight = Double.parseDouble(weightString);
-        }
-
+        // Calculate pet age in months
         int petAgeInMonths = calculateAgeInMonths(petDateOfBirth);
 
-        if (petAgeInMonths != -1) {
-            savePetHealthInformation(petAgeInMonths, petWeight);
-        } else {
-            Toast.makeText(this, "Error calculating pet age", Toast.LENGTH_SHORT).show();
+        // Create a StringBuilder to hold the health information
+        StringBuilder healthInfo = new StringBuilder();
+
+        // Display health information based on pet type
+        if ("Dog".equalsIgnoreCase(selectedPet.getType())) {
+            // Display dog health information
+            Pair<Double, Double> dogWeightRange = getDogBreedWeightRange(selectedPet.getBreed());
+            if (dogWeightRange != null) {
+                if (petWeight < dogWeightRange.first) {
+                    healthInfo.append("Weight Status: Underweight\n");
+                } else if (petWeight > dogWeightRange.second) {
+                    healthInfo.append("Weight Status: Overweight\n");
+                } else {
+                    healthInfo.append("Weight Status: Normal\n");
+                }
+            } else {
+                healthInfo.append("Weight Status: Weight range not available for the breed\n");
+            }
+            String lifeStage = calculateDogLifeStage(petAgeInMonths);
+            healthInfo.append("Life Stage: ").append(lifeStage).append("\n");
+        } else if ("cat".equalsIgnoreCase(selectedPet.getType())) {
+            // Display cat health information
+            Pair<Double, Double> catWeightRange = getCatBreedWeightRange(selectedPet.getBreed());
+            if (catWeightRange != null) {
+                if (petWeight < catWeightRange.first) {
+                    healthInfo.append("Weight Status: Underweight\n");
+                } else if (petWeight > catWeightRange.second) {
+                    healthInfo.append("Weight Status: Overweight\n");
+                } else {
+                    healthInfo.append("Weight Status: Normal\n");
+                }
+            } else {
+                healthInfo.append("Weight Status: Weight range not available for the breed\n");
+            }
+            String lifeStage = calculateCatLifeStage(petAgeInMonths);
+            healthInfo.append("Life Stage: ").append(lifeStage).append("\n");
         }
+
+        // Build the dialog message
+        StringBuilder dialogMessage = new StringBuilder();
+        dialogMessage.append("Health Information:\n");
+        dialogMessage.append(healthInfo).append("\n");
+        dialogMessage.append("Are you sure you want to save the pet's health information?");
+
+        // Create the dialog
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Save Pet Health Information");
+        builder.setMessage(dialogMessage.toString());
+
+        // Set up the buttons
+        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                String weightString = petWeightEditText.getText().toString();
+                if (!TextUtils.isEmpty(weightString)) {
+                    petWeight = Double.parseDouble(weightString);
+                }
+
+                if (petAgeInMonths != -1) {
+                    savePetHealthInformation(petAgeInMonths, petWeight);
+
+                    // Display a reminder message as a dialog
+                    AlertDialog.Builder reminderDialog = new AlertDialog.Builder(PetHealth.this);
+                    reminderDialog.setTitle("Reminder");
+                    reminderDialog.setMessage("Hey there! Remember to set health targets for your pets. It's important for their well-being, even if they seem healthy. Setting targets helps you stay on track, whether your pet is underweight, overweight, or just right. Let's keep our furry friends happy and healthy together!");
+                    reminderDialog.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            // Navigate to the next activity
+                            navigateToTargetActivity();
+                        }
+                    });
+                    reminderDialog.show();
+                } else {
+                    Toast.makeText(PetHealth.this, "Error calculating pet age", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+            }
+        });
+
+        builder.show();
+    }
+
+    private void navigateToTargetActivity() {
+        Intent intent = new Intent(this, SetTargets.class);
+        intent.putExtra("selectedPet", selectedPet);
+        startActivity(intent);
     }
     private Pair<Double, Double> getCatBreedWeightRange(String breed) {
 
@@ -680,6 +779,7 @@ public class PetHealth extends AppCompatActivity {
             return "Overweight";
         }
     }
+
 
 
 }

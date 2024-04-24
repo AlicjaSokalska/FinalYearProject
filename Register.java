@@ -1,4 +1,6 @@
 package com.example.testsample;
+
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -11,14 +13,17 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+
+import java.util.Random;
 
 public class Register extends AppCompatActivity {
 
@@ -29,7 +34,6 @@ public class Register extends AppCompatActivity {
     ProgressBar progressBar;
     TextView textView;
     Button btn_register;
-
 
 
     @Override
@@ -59,9 +63,34 @@ public class Register extends AppCompatActivity {
         btn_register.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                showConfirmationDialog();
+                //  registerUser();
+            }
+        });
+    }
+
+    private void showConfirmationDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Confirmation");
+        builder.setMessage("Hey there! Just a heads up 🚨 This app is designed to work smoothly with dogs and cats, but for other pets, certain features might be disabled or not fully optimized. Feel free to explore, but keep in mind that the best experience is with our furry friends!");
+
+        // Add the buttons
+        builder.setPositiveButton("I understand", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                // User clicked OK button
                 registerUser();
             }
         });
+        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                // User cancelled the dialog
+                dialog.dismiss();
+            }
+        });
+
+        // Create the AlertDialog
+        AlertDialog dialog = builder.create();
+        dialog.show();
     }
 
     private void registerUser() {
@@ -91,8 +120,15 @@ public class Register extends AppCompatActivity {
                             DatabaseReference currentUserRef = usersRef.child(userId);
                             currentUserRef.child("email").setValue(email);
 
+                            Random random = new Random();
+                            int pin = random.nextInt(9000) + 1000; // Generates a random number between 1000 and 9999
+
+                            // Send PIN to email
+                            // Assuming 'pin' is your generated PIN
+                            currentUserRef.child("pin").setValue(pin);
+
                             // Redirect to the main activity
-                            Intent intent = new Intent(Register.this,AddFullPetDetails.class);
+                            Intent intent = new Intent(Register.this, AddFullPetDetails.class);
                             startActivity(intent);
                             finish(); // Close the registration activity to prevent going back
 
@@ -105,4 +141,5 @@ public class Register extends AppCompatActivity {
                     }
                 });
     }
+
 }

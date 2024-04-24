@@ -2,6 +2,7 @@ package com.example.testsample;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -39,5 +40,7 @@ public class SelectMode extends AppCompatActivity {
                 }
             }
         });
+        Toast.makeText(this, "This app works best with dogs and cats. Other pets may have limited features.", Toast.LENGTH_LONG).show();
+
     }
 }

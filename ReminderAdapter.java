@@ -7,6 +7,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -71,7 +73,8 @@ public class ReminderAdapter extends RecyclerView.Adapter<ReminderAdapter.Remind
         private TextView descriptionTextView;
         private TextView dateTextView;
         private Switch statusSwitch; // Add Switch for status
-
+        private TextView repeatTextView;
+        private String selectedRepeatOption;
         public ReminderViewHolder(@NonNull View itemView) {
             super(itemView);
             // Initialize views
@@ -80,7 +83,7 @@ public class ReminderAdapter extends RecyclerView.Adapter<ReminderAdapter.Remind
             descriptionTextView = itemView.findViewById(R.id.description_textview);
             dateTextView = itemView.findViewById(R.id.date_textview);
             statusSwitch = itemView.findViewById(R.id.status_switch); // Find Switch for status
-
+            repeatTextView = itemView.findViewById(R.id.repeat_textview);
             // Set click listener on the itemView
             itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -107,7 +110,7 @@ public class ReminderAdapter extends RecyclerView.Adapter<ReminderAdapter.Remind
             tagTextView.setText("Tag: " + reminder.getTag());
             descriptionTextView.setText("Description: " + reminder.getDescription());
             dateTextView.setText("Date: " + reminder.getDate());
-
+            repeatTextView.setText("Repeat: " + reminder.getRepeatOption());
             // Set the Switch state based on reminder status
             statusSwitch.setChecked(reminder.isStatus());
 
@@ -175,108 +178,151 @@ public class ReminderAdapter extends RecyclerView.Adapter<ReminderAdapter.Remind
 
         builder.show();
     }
-    private void showUpdateDialog(final Reminder reminder) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle("Update Reminder");
+        private void showUpdateDialog(final Reminder reminder) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(context);
+            builder.setTitle("Update Reminder");
 
-        LayoutInflater inflater = LayoutInflater.from(context);
-        View view = inflater.inflate(R.layout.updat_reminder_dialog, null);
+            LayoutInflater inflater = LayoutInflater.from(context);
+            View view = inflater.inflate(R.layout.updat_reminder_dialog, null);
 
-        // Initialize views in the dialog layout
-        final EditText petNameEditText = view.findViewById(R.id.pet_name_edit_text);
-        final EditText tagEditText = view.findViewById(R.id.tag_edit_text);
-        final EditText descriptionEditText = view.findViewById(R.id.description_edit_text);
-        final EditText dateEditText = view.findViewById(R.id.date_edit_text);
-        final Switch statusSwitch = view.findViewById(R.id.status_switch);
+            // Initialize views in the dialog layout
+            final EditText petNameEditText = view.findViewById(R.id.pet_name_edit_text);
+            final EditText tagEditText = view.findViewById(R.id.tag_edit_text);
+            final EditText descriptionEditText = view.findViewById(R.id.description_edit_text);
+            final EditText dateEditText = view.findViewById(R.id.date_edit_text);
+            final Switch statusSwitch = view.findViewById(R.id.status_switch);
+            final RadioGroup repeatRadioGroup = view.findViewById(R.id.repeat_radio_group);
+            final RadioButton neverRadioButton = view.findViewById(R.id.never_radio_button);
+            final RadioButton dailyRadioButton = view.findViewById(R.id.daily_radio_button);
+            final RadioButton weeklyRadioButton = view.findViewById(R.id.weekly_radio_button);
+            final RadioButton monthlyRadioButton = view.findViewById(R.id.monthly_radio_button);
+            final RadioButton yearlyRadioButton = view.findViewById(R.id.yearly_radio_button);
 
-        // Set initial values
-        petNameEditText.setText(reminder.getPetName()); // Populate the pet name field
-        tagEditText.setText(reminder.getTag());
-        descriptionEditText.setText(reminder.getDescription());
-        dateEditText.setText(reminder.getDate());
-        statusSwitch.setChecked(reminder.isStatus());
+            // Set initial values
+            petNameEditText.setText(reminder.getPetName()); // Populate the pet name field
+            tagEditText.setText(reminder.getTag());
+            descriptionEditText.setText(reminder.getDescription());
+            dateEditText.setText(reminder.getDate());
+            statusSwitch.setChecked(reminder.isStatus());
 
-        builder.setView(view);
-
-        builder.setPositiveButton("Update", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                // Get updated values
-                String updatedPetName = petNameEditText.getText().toString().trim(); // Update pet name
-                String updatedTag = tagEditText.getText().toString().trim();
-                String updatedDescription = descriptionEditText.getText().toString().trim();
-                String updatedDate = dateEditText.getText().toString().trim();
-                boolean updatedStatus = statusSwitch.isChecked();
-
-                // Call method to update reminder
-                updateReminder(reminder,  updatedTag, updatedDescription, updatedDate, updatedStatus);
+            // Set radio button based on reminder's repeat option
+            switch (reminder.getRepeatOption()) {
+                case "Never":
+                    neverRadioButton.setChecked(true);
+                    break;
+                case "Daily":
+                    dailyRadioButton.setChecked(true);
+                    break;
+                case "Weekly":
+                    weeklyRadioButton.setChecked(true);
+                    break;
+                case "Monthly":
+                    monthlyRadioButton.setChecked(true);
+                    break;
+                case "Yearly":
+                    yearlyRadioButton.setChecked(true);
+                    break;
             }
-        });
 
-        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.dismiss();
+            builder.setView(view);
+
+            builder.setPositiveButton("Update", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    // Get updated values
+                    String updatedPetName = petNameEditText.getText().toString().trim(); // Update pet name
+                    String updatedTag = tagEditText.getText().toString().trim();
+                    String updatedDescription = descriptionEditText.getText().toString().trim();
+                    String updatedDate = dateEditText.getText().toString().trim();
+                    boolean updatedStatus = statusSwitch.isChecked();
+                    String updatedRepeatOption = getRepeatOption(repeatRadioGroup.getCheckedRadioButtonId());
+
+                    updateReminder(reminder, updatedTag, updatedDescription, updatedDate, updatedStatus, updatedRepeatOption); // Pass updatedRepeatOption here
+                }
+            });
+
+
+            builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    dialog.dismiss();
+                }
+            });
+
+            builder.show();
+        }
+
+
+        private String getRepeatOption(int radioButtonId) {
+            if (radioButtonId == R.id.never_radio_button) {
+                return "Never";
+            } else if (radioButtonId == R.id.daily_radio_button) {
+                return "Daily";
+            } else if (radioButtonId == R.id.weekly_radio_button) {
+                return "Weekly";
+            } else if (radioButtonId == R.id.monthly_radio_button) {
+                return "Monthly";
+            } else if (radioButtonId == R.id.yearly_radio_button) {
+                return "Yearly";
+            } else {
+                return "";
             }
-        });
-
-        builder.show();
-    }
-
-    private void updateReminder(final Reminder reminder, final String updatedTag, final String updatedDescription, final String updatedDate, final boolean updatedStatus) {
-        if (currentUserId == null || reminder == null) {
-            // Handle null values gracefully
-            Toast.makeText(context, "User ID or reminder is null", Toast.LENGTH_SHORT).show();
-            return;
         }
+        private void updateReminder(final Reminder reminder, final String updatedTag, final String updatedDescription, final String updatedDate, final boolean updatedStatus, final String updatedRepeatOption) {
+            if (currentUserId == null || reminder == null) {
+                // Handle null values gracefully
+                Toast.makeText(context, "User ID or reminder is null", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-        // Ensure reminder is not null before accessing its properties
-        if (reminder.getPetName() == null || reminder.getReminderId() == null) {
-            Toast.makeText(context, "Reminder data is incomplete", Toast.LENGTH_SHORT).show();
-            return;
-        }
+            // Ensure reminder is not null before accessing its properties
+            if (reminder.getPetName() == null || reminder.getReminderId() == null) {
+                Toast.makeText(context, "Reminder data is incomplete", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-        DatabaseReference remindersRef = FirebaseDatabase.getInstance().getReference()
-                .child("users")
-                .child(currentUserId)
-                .child("pets")
-                .child(reminder.getPetName())
-                .child("reminders")
-                .child(reminder.getReminderId());
+            DatabaseReference remindersRef = FirebaseDatabase.getInstance().getReference()
+                    .child("users")
+                    .child(currentUserId)
+                    .child("pets")
+                    .child(reminder.getPetName())
+                    .child("reminders")
+                    .child(reminder.getReminderId());
 
-        Map<String, Object> updateData = new HashMap<>();
-        updateData.put("tag", updatedTag);
-        updateData.put("description", updatedDescription);
+            Map<String, Object> updateData = new HashMap<>();
+            updateData.put("tag", updatedTag);
+            updateData.put("description", updatedDescription);
+            updateData.put("repeatOption", updatedRepeatOption); // Add the repeat option
 
-        // Format the updated date string to ensure consistency
-        SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
-        try {
-            Date formattedDate = dateFormat.parse(updatedDate);
-            String formattedDateString = dateFormat.format(formattedDate);
-            updateData.put("date", formattedDateString);
-        } catch (ParseException e) {
-            e.printStackTrace();
-            // Handle date parsing error
-            Toast.makeText(context, "Failed to parse date", Toast.LENGTH_SHORT).show();
-            return;
-        }
+            // Format the updated date string to ensure consistency
+            SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+            try {
+                Date formattedDate = dateFormat.parse(updatedDate);
+                String formattedDateString = dateFormat.format(formattedDate);
+                updateData.put("date", formattedDateString);
+            } catch (ParseException e) {
+                e.printStackTrace();
+                // Handle date parsing error
+                Toast.makeText(context, "Failed to parse date", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-        updateData.put("status", updatedStatus);
+            updateData.put("status", updatedStatus);
 
-        remindersRef.updateChildren(updateData)
-                .addOnCompleteListener(new OnCompleteListener<Void>() {
-                    @Override
-                    public void onComplete(@NonNull Task<Void> task) {
-                        if (task.isSuccessful()) {
-                            // Reminder updated successfully
-                            Toast.makeText(context, "Reminder updated", Toast.LENGTH_SHORT).show();
-                        } else {
-                            // Failed to update reminder
-                            Toast.makeText(context, "Failed to update reminder", Toast.LENGTH_SHORT).show();
+            remindersRef.updateChildren(updateData)
+                    .addOnCompleteListener(new OnCompleteListener<Void>() {
+                        @Override
+                        public void onComplete(@NonNull Task<Void> task) {
+                            if (task.isSuccessful()) {
+                                // Reminder updated successfully
+                                Toast.makeText(context, "Reminder updated", Toast.LENGTH_SHORT).show();
+                            } else {
+                                // Failed to update reminder
+                                Toast.makeText(context, "Failed to update reminder", Toast.LENGTH_SHORT).show();
+                            }
                         }
-                    }
-                });
-    }
+                    });
+        }
 
 
         private void deleteReminder(final Reminder reminder) {

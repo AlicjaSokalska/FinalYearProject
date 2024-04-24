@@ -16,9 +16,12 @@ import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.RelativeLayout;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -92,6 +95,15 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
     private TextView heartRateTextView;
     private Switch trackingSwitch;
     private boolean isTracking = false;
+    private boolean isDarkScreenEnabled = false;
+
+
+    private Button btnStart;
+    private RelativeLayout mainLayout;
+    private View overlayView;
+
+    private boolean isLongClickActivated = false;
+    private final Handler longClickHandler = new Handler(Looper.getMainLooper());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -237,7 +249,80 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
         updateTrackingUI();
         fetchAndDisplayExerciseData();
 
+
+        btnStart = findViewById(R.id.btn_start);
+        mainLayout = findViewById(R.id.mainLayout);
+        overlayView = findViewById(R.id.overlayView);
+
+        btnStart.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Show the overlay view
+                overlayView.setVisibility(View.VISIBLE);
+                // Hide other views
+                hideViews();
+            }
+        });
+
+        btnStart.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Show the overlay view
+                overlayView.setVisibility(View.VISIBLE);
+                // Hide other views
+                hideViews();
+            }
+        });
+
+         overlayView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        isLongClickActivated = false;
+                        longClickHandler.postDelayed(longClickRunnable, 20000); // 20 seconds delay
+                        break;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        longClickHandler.removeCallbacks(longClickRunnable);
+                        if (!isLongClickActivated) {
+                            // Hide the overlay view
+                            overlayView.setVisibility(View.INVISIBLE);
+                            // Show other views
+                            showViews();
+                        }
+                        break;
+                }
+                return true;
+            }
+        });
     }
+
+    private final Runnable longClickRunnable = new Runnable() {
+        @Override
+        public void run() {
+            isLongClickActivated = true;
+            // Hide the overlay view
+            overlayView.setVisibility(View.INVISIBLE);
+            // Show other views
+            showViews();
+            Toast.makeText(Tracking.this, "Back to normal", Toast.LENGTH_SHORT).show();
+        }
+    };
+
+    private void hideViews() {
+        // Hide other views except the main layout
+        btnStart.setVisibility(View.INVISIBLE);
+        // Add more views here if needed
+    }
+
+    private void showViews() {
+        // Show other views
+        btnStart.setVisibility(View.VISIBLE);
+        // Add more views here if needed
+    }
+
+
 
 
     private void createNotificationChannel() {

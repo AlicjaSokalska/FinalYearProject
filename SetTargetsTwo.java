@@ -20,7 +20,8 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
-public class SetTargets extends AppCompatActivity {
+
+public class SetTargetsTwo extends AppCompatActivity {
     private String currentUserUid;
     private DatabaseReference petReference;
     private Pet selectedPet;
@@ -33,7 +34,7 @@ public class SetTargets extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_set_targets);
+        setContentView(R.layout.activity_set_targets_two);
 
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
@@ -53,7 +54,7 @@ public class SetTargets extends AppCompatActivity {
         recommendedStepCountTextView = findViewById(R.id.recommendedStepCountTextView);
         saveButton = findViewById(R.id.saveButton);
         Button saveCatWeightGoalButton = findViewById(R.id.saveCatWeightGoalButton);
-Button saveOtherPetWeightGoalButton = findViewById(R.id.saveOtherPetWeightGoalButton);
+        Button saveOtherPetWeightGoalButton = findViewById(R.id.saveOtherPetWeightGoalButton);
         // Find the buttons
 
 
@@ -66,7 +67,7 @@ Button saveOtherPetWeightGoalButton = findViewById(R.id.saveOtherPetWeightGoalBu
             recommendedStepCountTextView.setText("Cats generally need around 30 minutes of exercise per day to stay healthy and happy.");
 
             saveButton.setVisibility(View.GONE);
-           saveOtherPetWeightGoalButton.setVisibility(View.GONE);
+            saveOtherPetWeightGoalButton.setVisibility(View.GONE);
             saveCatWeightGoalButton.setVisibility(View.VISIBLE);
 
             saveCatWeightGoalButton.setOnClickListener(new View.OnClickListener() {
@@ -76,7 +77,7 @@ Button saveOtherPetWeightGoalButton = findViewById(R.id.saveOtherPetWeightGoalBu
                 }
             });
         }
-       else  if ("Other".equals(selectedPet.getType())) {
+        else  if ("Other".equals(selectedPet.getType())) {
 
             activityGoalEditText.setEnabled(true);
 
@@ -94,7 +95,7 @@ Button saveOtherPetWeightGoalButton = findViewById(R.id.saveOtherPetWeightGoalBu
                 }
             });
         }
-       else if ("Dog".equals(selectedPet.getType())) {
+        else if ("Dog".equals(selectedPet.getType())) {
 
             saveCatWeightGoalButton.setVisibility(View.GONE);
             saveOtherPetWeightGoalButton.setVisibility(View.GONE);
@@ -234,17 +235,17 @@ Button saveOtherPetWeightGoalButton = findViewById(R.id.saveOtherPetWeightGoalBu
                     double maxWeight = dataSnapshot.child("second").getValue(Double.class);
 
                     if (weightGoalValue < minWeight || weightGoalValue > maxWeight) {
-                        Toast.makeText(SetTargets.this, "Weight goal should be within the breed weight range", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(SetTargetsTwo.this, "Weight goal should be within the breed weight range", Toast.LENGTH_SHORT).show();
                     } else {
                         System.out.println("Weight Goal: " + weightGoal);
                         System.out.println("Activity Goal: " + activityGoal);
                         compareTargetsWithRecommendation();
                         saveTargetsToFirebase(weightGoal, activityGoal);
-                        navigateToDisplayPetProfile();
+                        navigateToPetHealth();
 
                     }
                 } else {
-                    Toast.makeText(SetTargets.this, "Breed weight range data not found", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(SetTargetsTwo.this, "Breed weight range data not found", Toast.LENGTH_SHORT).show();
                 }
             }
 
@@ -256,12 +257,12 @@ Button saveOtherPetWeightGoalButton = findViewById(R.id.saveOtherPetWeightGoalBu
 
     }
 
-
-    private void navigateToDisplayPetProfile() {
-        Intent intent = new Intent(this, DisplayPetProfile.class);
+    private void navigateToPetHealth() {
+        Intent intent = new Intent(this,HealthData.class);
         intent.putExtra("selectedPet", selectedPet);
         startActivity(intent);
     }
+
 
     private void saveTargetsToFirebase(String weightGoal, String activityGoal) {
         DatabaseReference petHealthReference = FirebaseDatabase.getInstance().getReference()
