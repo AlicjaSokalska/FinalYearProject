@@ -164,7 +164,7 @@ public class DisplayPetProfile extends AppCompatActivity {
             DatabaseReference catHealthTargetRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("health").child("catHealthTarget");
 
             DatabaseReference dogHealthTargetRef = FirebaseDatabase.getInstance().getReference().child("users").child(userId).child("pets").child(selectedPet.getName()).child("health").child("dogHealthTarget");
-            exerciseDataRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            exerciseDataRef.addValueEventListener(new ValueEventListener() {
                 @Override
                 public void onDataChange(@NonNull DataSnapshot snapshot) {
                     if (snapshot.exists()) {

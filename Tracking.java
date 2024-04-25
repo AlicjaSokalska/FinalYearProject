@@ -4,7 +4,9 @@ import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -17,6 +19,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
@@ -27,6 +30,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
@@ -96,14 +100,19 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
     private Switch trackingSwitch;
     private boolean isTracking = false;
     private boolean isDarkScreenEnabled = false;
-
-
     private Button btnStart;
     private RelativeLayout mainLayout;
     private View overlayView;
-
     private boolean isLongClickActivated = false;
     private final Handler longClickHandler = new Handler(Looper.getMainLooper());
+
+    private SharedPreferences sharedPreferences;
+
+    // Constants for SharedPreferences keys
+    private static final String STEP_COUNT_KEY = "step_count";
+    private static final String LAST_DATE_KEY = "last_date";
+    private boolean isDateChecked = false;
+    private String lastTrackedDate;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -124,7 +133,7 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
         btn_showWaypoint = findViewById(R.id.btn_showWaypoint);
         btn_showMap = findViewById(R.id.btn_showMap);
         tv_wayPointCounts = findViewById(R.id.tv_breadcrumbs);
-       // RelativeLayout overlayLayout = findViewById(R.id.overlay_layout);
+        // RelativeLayout overlayLayout = findViewById(R.id.overlay_layout);
         locationUpdateHandler = new Handler();
         notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         createNotificationChannel();
@@ -158,6 +167,9 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
                 checkGeofence(locationResult.getLastLocation());
             }
         };
+        // Initialize wake lock
+
+
 
         btn_newWaypoint.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -206,6 +218,7 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
                     locationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
                     tv_sensor.setText("Using Towers + WIFI");
                 }
+                checkSwitchesAndPrompt();
             }
         });
         sw_locationsupdates.setChecked(false);
@@ -219,6 +232,7 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
                 } else {
                     stopLocationUpdates();
                 }
+                checkSwitchesAndPrompt();
             }
         });
         if (sw_locationsupdates.isChecked()) {
@@ -243,13 +257,13 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
             } else {
                 stopTracking();
             }
+            checkSwitchesAndPrompt();
         });
         isTracking = trackingSwitch.isChecked();
-
         updateTrackingUI();
+        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        lastTrackedDate = sharedPreferences.getString(LAST_DATE_KEY, "");
         fetchAndDisplayExerciseData();
-
-
         btnStart = findViewById(R.id.btn_start);
         mainLayout = findViewById(R.id.mainLayout);
         overlayView = findViewById(R.id.overlayView);
@@ -274,29 +288,33 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
             }
         });
 
-         overlayView.setOnTouchListener(new View.OnTouchListener() {
+        overlayView.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
+                        // Reset the flag indicating long click activation
                         isLongClickActivated = false;
+                        // Start the long click handler with a 20-second delay
                         longClickHandler.postDelayed(longClickRunnable, 20000); // 20 seconds delay
                         break;
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
-                        longClickHandler.removeCallbacks(longClickRunnable);
+                        // Remove the long click callback
+                        longClickHandler.removeCallbacksAndMessages(null); // Remove all callbacks
+                        // If the long click was not activated, keep the overlay view visible
                         if (!isLongClickActivated) {
-                            // Hide the overlay view
-                            overlayView.setVisibility(View.INVISIBLE);
-                            // Show other views
-                            showViews();
+                            return true;
                         }
                         break;
                 }
-                return true;
+                return false;
             }
         });
+
+
     }
+
 
     private final Runnable longClickRunnable = new Runnable() {
         @Override
@@ -310,20 +328,32 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
         }
     };
 
+    private void checkSwitchesAndPrompt() {
+        if (sw_locationsupdates.isChecked() && sw_gps.isChecked()) {
+            // Both switches are on, prompt the user
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("Reminder");
+            builder.setMessage("Please press Start to begin tracking and and disable screen");
+            builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    // User acknowledged the reminder
+                }
+            });
+            builder.show();
+        } else {
+            // At least one switch is off
+            Toast.makeText(this, "Please turn on all switches.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     private void hideViews() {
-        // Hide other views except the main layout
         btnStart.setVisibility(View.INVISIBLE);
-        // Add more views here if needed
     }
 
     private void showViews() {
-        // Show other views
         btnStart.setVisibility(View.VISIBLE);
-        // Add more views here if needed
     }
-
-
-
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -332,7 +362,6 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
             int importance = NotificationManager.IMPORTANCE_DEFAULT;
             NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
             channel.setDescription(description);
-
             notificationManager.createNotificationChannel(channel);
         }
     }
@@ -363,7 +392,6 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
                                 geofenceLatitude, geofenceLongitude,
                                 distance
                         );
-
                         Log.d("GeofenceCheck", "Distance from geofence center: " + distance[0]);
                         Log.d("GeofenceCheck", "Geofence Radius: " + geofenceRadius);
 
@@ -389,39 +417,6 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
         });
     }
 
-
-    /* private void startLocationUpdates() {
-         locationUpdateHandler.postDelayed(new Runnable() {
-             @Override
-             public void run() {
-                 // Start location updates
-                 if (ActivityCompat.checkSelfPermission(Tracking.this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                     fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallBack, null);
-                 }
-                 // Schedule the next update after 20 minutes
-                 locationUpdateHandler.postDelayed(this, LOCATION_UPDATE_INTERVAL);
-             }
-         }, LOCATION_UPDATE_INTERVAL);
-     }
-
-     private void stopLocationUpdates() {
-         locationUpdateHandler.removeCallbacksAndMessages(null);
-         tv_updates.setText("Location is NOT being tracked");
-         tv_lat.setText("Not tracking Location");
-         tv_lon.setText("Not tracking Location");
-         tv_speed.setText("Not tracking Location");
-         tv_address.setText("Not tracking Location");
-         tv_accuracy.setText("Not tracking Location");
-         tv_altitude.setText("Not tracking Location");
-         tv_sensor.setText("Not tracking Location");
-         fusedLocationProviderClient.removeLocationUpdates(locationCallBack);
-     }
-     @Override
-     protected void onDestroy() {
-         super.onDestroy();
-         // Stop location updates when the activity is destroyed
-         stopLocationUpdates();
-     }*/
     private void startLocationUpdates() {
         if (!isLocationUpdatesStarted) {
             // Start location updates only if not already started
@@ -487,12 +482,10 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
                 requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_FINE_LOCATION);
             }
         }
-        // get location
-        // update UI
+
     }
 
     private void updateUIValues(Location location) {
-        // updated all the values
         if (location != null) {
             tv_lat.setText(String.valueOf(location.getLatitude()));
             tv_lon.setText(String.valueOf(location.getLongitude()));
@@ -527,13 +520,9 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
             Log.e("Geocoder", "Error getting address", e);
             tv_address.setText("Unable to get street address");
         }
-
-        // add new loc
         MyApplication myApp = (MyApplication) getApplicationContext();
         savedLocations = myApp.getMyLocations();
-        // show the no. of waypoints
         tv_wayPointCounts.setText(Integer.toString(savedLocations.size()));
-
     }
 
     private void updateFirebaseLocation(Location location) {
@@ -570,25 +559,18 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
         }
     }
 
-
-    // exercise
-
-
     private void startTracking() {
-
         Log.d("ExerciseActivity", "Pet activity is being tracked");
-
     }
 
     private void stopTracking() {
         Log.d("ExerciseActivity", "Daily total saved");
         saveDailyTotal(stepCount, distance);
 
-        stepCount = 0;
-        distance = 0.0;
-
+        //stepCount = 0;
+       // distance = 0.0;
+       // saveExerciseData(selectedPetName, stepCount, distance);
         saveExerciseData(selectedPetName, stepCount, distance);
-
         Log.d("ExerciseActivity", "Data resetted");
     }
 
@@ -600,15 +582,13 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
         }
     }
 
-
     @Override
     protected void onResume() {
         super.onResume();
         sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
-
-        fetchAndDisplayExerciseData();
-
-
+        if (stepCount == 0 && distance == 0.0) {
+            fetchAndDisplayExerciseData();
+        }
     }
 
     @Override
@@ -617,62 +597,87 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
         sensorManager.unregisterListener(this);
     }
 
-
-    @Override
-    public void onSensorChanged(SensorEvent event) {
+   /* public void onSensorChanged(SensorEvent event) {
         if (isTracking && event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             long currentTime = System.currentTimeMillis();
 
             if (currentTime - lastUpdateTime > 500) { // Update every 500 milliseconds
                 lastUpdateTime = currentTime;
-
                 float x = event.values[0];
                 float y = event.values[1];
                 float z = event.values[2];
-
                 double acceleration = Math.sqrt(x * x + y * y + z * z) - SensorManager.GRAVITY_EARTH;
 
                 if (acceleration > 2.0) {
                     stepCount++;
                     updateStepCount();
-
                     distance += 0.76;
                     updateDistance();
-
-                    // Speed = Distance / Time
                     speed = distance / ((currentTime - lastUpdateTime) / 1000.0);
                     updateSpeed();
-
                     saveExerciseData(selectedPetName, stepCount, distance);
-
-
                 }
             }
-
-
             Calendar currentCalendar = Calendar.getInstance();
             if (currentCalendar.get(Calendar.HOUR_OF_DAY) == 11 && currentCalendar.get(Calendar.MINUTE) == 59) {
                 saveDailyTotal(stepCount, distance);
             }
-
-
             Calendar midnightCalendar = Calendar.getInstance();
             if (midnightCalendar.get(Calendar.HOUR_OF_DAY) == 0 && midnightCalendar.get(Calendar.MINUTE) == 0) {
-
                 stepCount = 0;
                 distance = 0.0;
                 saveExerciseData(selectedPetName, stepCount, distance);
             }
         }
-    }
+    }*/
+   @Override
+   public void onSensorChanged(SensorEvent event) {
+       if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+           long currentTime = System.currentTimeMillis();
 
+           if (currentTime - lastUpdateTime > 500) { // Update every 500 milliseconds
+               lastUpdateTime = currentTime;
+               float x = event.values[0];
+               float y = event.values[1];
+               float z = event.values[2];
+               double acceleration = Math.sqrt(x * x + y * y + z * z) - SensorManager.GRAVITY_EARTH;
+
+               if (acceleration > 2.0) {
+                   stepCount++;
+                   updateStepCount();
+                   distance += 0.76;
+                   updateDistance();
+                   speed = distance / ((currentTime - lastUpdateTime) / 1000.0);
+                   updateSpeed();
+                   if (isTracking) {
+                       saveExerciseData(selectedPetName, stepCount, distance);
+                   }
+               }
+           }
+
+           // Check if date has changed and tracking is enabled
+           if (isTracking && !isDateChecked) {
+               Calendar currentCalendar = Calendar.getInstance();
+               SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd", Locale.getDefault());
+               String currentDate = dateFormat.format(currentCalendar.getTime());
+               if (!currentDate.equals(lastTrackedDate)) {
+                   // Date has changed, reset step count
+                   saveDailyTotal(stepCount, distance);
+                   stepCount = 0;
+                   distance = 0.0;
+                   lastTrackedDate = currentDate;
+                   sharedPreferences.edit().putString(LAST_DATE_KEY, lastTrackedDate).apply();
+               }
+               isDateChecked = true; // Set flag to true after checking the date
+           }
+       }
+   }
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        // Not needed for this example
     }
 
-    private void fetchAndDisplayExerciseData() {
+   /* private void fetchAndDisplayExerciseData() {
         if (selectedPetName != null) {
             DatabaseReference exerciseRef = usersRef.child("pets").child(selectedPetName).child("current_exercise_data");
 
@@ -683,13 +688,10 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
                         // Get exercise data
                         stepCount = snapshot.child("stepCount").getValue(Integer.class);
                         distance = snapshot.child("distance").getValue(Double.class);
-
-                        // Update UI with fetched data
                         updateStepCount();
                         updateDistance();
                         updateSpeed();
                     } else {
-                        // If data doesn't exist, set counts to zero
                         stepCount = 0;
                         distance = 0.0;
                     }
@@ -702,37 +704,53 @@ public class Tracking extends AppCompatActivity implements SensorEventListener {
             });
         }
     }
+*/private void fetchAndDisplayExerciseData() {
+       if (selectedPetName != null) {
+           DatabaseReference exerciseRef = usersRef.child("pets").child(selectedPetName).child("current_exercise_data");
+
+           exerciseRef.addListenerForSingleValueEvent(new ValueEventListener() {
+               @Override
+               public void onDataChange(@NonNull DataSnapshot snapshot) {
+                   if (snapshot.exists()) {
+                       // Get exercise data
+                       stepCount = snapshot.child("stepCount").getValue(Integer.class);
+                       distance = snapshot.child("distance").getValue(Double.class);
+                       updateStepCount();
+                       updateDistance();
+                       updateSpeed();
+                   } else {
+                       // If exercise data doesn't exist, initialize step count and distance
+                       stepCount = 0;
+                       distance = 0.0;
+                   }
+               }
+
+               @Override
+               public void onCancelled(@NonNull DatabaseError error) {
+                   // Handle error
+               }
+           });
+       }
+   }
 
     private void saveDailyTotal(int stepCount, double distance) {
         Log.d("ExerciseActivity", "Saving daily total exercise data");
 
-        // Format the date as "yyyyMMdd"
         String formattedDate = new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(new Date());
-
         DatabaseReference dailyTotalDataRef = dailyTotalRef.child(formattedDate);
-
         dailyTotalDataRef.child("stepCount").setValue(stepCount);
         dailyTotalDataRef.child("distance").setValue(distance);
-
-
-        // Reset counts for the next day
         stepCount = 0;
         distance = 0.0;
-
-
         Log.d("ExerciseActivity", "Daily total exercise data saved successfully.");
     }
 
     private void saveExerciseData(String petName, int stepCount, double distance) {
         Log.d("ExerciseActivity", "Saving exercise data for pet: " + petName);
-
         if (petName != null) {
             DatabaseReference exerciseRef = usersRef.child("pets").child(petName).child("current_exercise_data");
-
             exerciseRef.child("stepCount").setValue(stepCount);
             exerciseRef.child("distance").setValue(distance);
-
-
             Log.d("ExerciseActivity", "Exercise data saved successfully.");
         } else {
             Log.e("ExerciseActivity", "Pet name is null. Unable to save exercise data.");
